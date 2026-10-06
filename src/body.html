@@ -1,0 +1,124 @@
+<section id="title">
+  <div class="wrap">
+    <div class="hero">
+      <p class="eyebrow">A baseball career on your phone</p>
+      <h1>Baseball<span> Go</span></h1>
+      <p class="muted">High school, then college or the draft, then the long climb from Rookie ball to the Bigs. You play every one of your at-bats.</p>
+    </div>
+    <div class="card">
+      <span class="chip" id="careerChip">No save yet</span>
+      <div class="row"><button class="go" id="btnContinue" hidden>Continue career</button><button id="btnNew">New career</button><button id="btnNewConfirm" hidden>Start over? Tap to confirm</button></div>
+      <div class="row"><button class="ghost" id="btnPractice">Batting practice</button><button class="ghost" id="btnQuick">Quick game</button></div>
+    </div>
+    <div class="card">
+      <h3>How to hit</h3>
+      <div class="how">
+        <b>Aim</b><span>Drag anywhere on the screen to move the yellow circle (your contact zone) onto the pitch. Your finger never covers it.</span>
+        <b>Swing</b><span>Tap to swing, or press the Swing button. Timing decides where it goes: early pulls it, late goes the other way.</span>
+        <b>Lift</b><span>Circle under the ball hits it in the air; circle over the ball beats it into the ground.</span>
+        <b>Swings</b><span>Contact (bigger circle), Normal, or Power (smaller circle, harder hit).</span>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Keep your career safe</h3>
+      <p class="muted" id="installHint" style="font-size:14px"></p>
+      <div class="row"><button class="ghost" id="btnBackup">Copy backup code</button><button class="ghost" id="btnRestore">Restore</button></div>
+      <textarea id="saveCode" rows="3" hidden></textarea>
+      <button id="btnRestoreGo" hidden>Restore this career</button>
+      <p class="muted" id="saveMsg" style="font-size:14px"></p>
+    </div>
+  </div>
+</section>
+
+<section id="select" hidden>
+  <div class="wrap">
+    <div><p class="eyebrow" id="selEyebrow">New career</p><h2>Pick your player</h2><p class="muted" id="selIntro"></p></div>
+    <div class="row" id="qmRow" hidden></div>
+    <label id="qmLevelWrap" hidden>Level
+      <select id="qmLevel"><option value="hs">High school</option><option value="college">College</option><option value="aa">Double-A</option><option value="mlb" selected>The Bigs</option></select>
+    </label>
+    <div class="roster" id="roster"></div>
+    <div class="sticky row"><button class="ghost" id="selBack">Back</button><button class="go" id="selGo" style="flex:1" disabled>Pick a player</button></div>
+  </div>
+</section>
+
+<section id="create" hidden>
+  <div class="wrap">
+    <div><p class="eyebrow">New career</p><h2>Your position</h2><p class="muted">Where you play in the field. Your at-bats are live; defense is simulated for now.</p></div>
+    <div class="roster" id="positions"></div>
+    <label class="toggle"><input type="checkbox" id="twoWay"><span><b>Two-way player.</b> You also pitch. Pitching is coming in a later update; your arm ratings are saved for it.</span></label>
+    <div class="sticky row"><button class="ghost" id="createBack">Back</button><button class="go" id="createGo" style="flex:1" disabled>Pick a position</button></div>
+  </div>
+</section>
+
+<section id="hub" hidden>
+  <div class="wrap">
+    <div class="row between"><p class="eyebrow">Career</p><button class="ghost" id="hubMenu" style="padding:6px 12px;font-size:13px">Menu</button></div>
+    <div class="stepper" id="stepper"></div>
+    <div class="card" id="playerCard"></div>
+    <div class="card" id="nextCard"></div>
+    <div class="card" id="statsCard"></div>
+    <div class="card" id="trainCard"></div>
+    <div class="card cal" id="schedCard"></div>
+    <div class="card" id="careerCard"></div>
+  </div>
+</section>
+
+<section id="decide" hidden>
+  <div class="wrap">
+    <div><p class="eyebrow" id="decideEyebrow">Decision</p><h2 id="decideTitle"></h2></div>
+    <div class="card" id="decideBody"></div>
+  </div>
+</section>
+
+<section id="season" hidden>
+  <div class="wrap">
+    <div><p class="eyebrow" id="seasonEyebrow">Season over</p><h2 id="seasonTitle"></h2></div>
+    <div class="card" id="seasonText"></div>
+    <div class="row" id="seasonBtns"></div>
+  </div>
+</section>
+
+<section id="records" hidden>
+  <div class="wrap">
+    <div class="row between"><h2>Records</h2><button class="ghost" id="recBack">Back</button></div>
+    <div class="card" id="recBody"></div>
+  </div>
+</section>
+
+<section id="result" hidden>
+  <div class="wrap">
+    <div><p class="banner" id="resBanner">Final</p><p class="score-line num" id="resScore"></p></div>
+    <div class="card" id="resLine"></div>
+    <div class="card" id="resMe"></div>
+    <div class="card"><h3>Your at-bats</h3><ul class="plays" id="resLog"></ul></div>
+    <div class="sticky"><button class="go" id="resNext" style="width:100%">Continue</button></div>
+  </div>
+</section>
+
+<section id="ab" hidden>
+  <canvas id="gl"></canvas>
+  <div class="hud top">
+    <div class="bug" id="bug"></div>
+    <div class="row between sub"><span id="who"></span><span class="cnt num" id="cnt"></span></div>
+    <p id="ptype" hidden></p>
+  </div>
+  <div id="call"></div>
+  <div class="hud bot">
+    <div class="row between ctl">
+      <div id="stype"><button data-t="contact">Contact</button><button data-t="normal">Normal</button><button data-t="power">Power</button></div>
+      <button id="swingBtn" aria-label="Swing">Swing</button>
+    </div>
+    <div class="msgbar"><span id="msg"></span><span class="row" style="gap:6px;flex-wrap:nowrap"><button id="snd">Sound on</button><button id="quit">Pause</button></span></div>
+  </div>
+  <div id="between" hidden>
+    <div class="card">
+      <div id="btwHead"></div>
+      <ul class="plays" id="btwLog"></ul>
+      <p id="btwSit" style="font-size:15px"></p>
+      <div class="row"><button class="go" id="btwGo" style="flex:1">Step in</button><button class="ghost" id="btwSim">Sim rest of game</button></div>
+    </div>
+  </div>
+  <div id="pauseMenu" hidden><div class="card"><h3>Paused</h3><p class="muted">Quitting a game in progress means it won’t count.</p><div class="row"><button class="go" id="pmResume" style="flex:1">Resume</button><button class="ghost" id="pmQuit">Quit</button></div></div></div>
+  <div id="loading" hidden><span id="loadMsg">Loading…</span></div>
+</section>
