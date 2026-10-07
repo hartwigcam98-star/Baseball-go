@@ -4,7 +4,7 @@ R=os.path.dirname(os.path.dirname(os.path.abspath(__file__)));S=os.path.join(R,'
 rd=lambda *p:open(os.path.join(S,*p),encoding='utf-8').read()
 mc=json.loads(rd('assets','mclips.json'))
 game=rd('game.js')
-for k,f in [('FX','fx.js'),('PLAY','play.js'),('RIG','rig.js'),('PARK','park.js'),('AUDIO','audio.js'),('FEEL','feel.js'),('MODES','modes.js'),('SIM','sim.js'),('CAREER','career.js')]:
+for k,f in [('FX','fx.js'),('PLAY','play.js'),('RIG','rig.js'),('PARK','park.js'),('AUDIO','audio.js'),('FEEL','feel.js'),('MODES','modes.js'),('PITCH','pitch.js'),('SIM','sim.js'),('CAREER','career.js')]:
     assert '/*@'+k+'*/' in game,k
     game=game.replace('/*@'+k+'*/',rd(f))
 out=rd('head.html')+rd('body.html')

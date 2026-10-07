@@ -68,6 +68,7 @@ function resolvePlay(B,ctx,rand){
   if(B.hr){// a leaping catch at the wall?
     const w=B.wall,i=w.x<-25?7:w.x>25?9:8;
     if(w.y<PARK_WALL()+0.55&&fielderCan(i,FPOS[i],w.x,w.z,w.t,true,0.6)&&rand()<0.45){R.code='FO';R.out=1;R.fielder=i;R.t=w.t;R.catchAt=[w.x,w.y,w.z];R.desc='robbed at the wall by the '+FNAME[i];R.robbed=true;R.air=true;return finishOut(R,ctx,B)}
+    if(w.y<PARK_WALL()+1.4&&fielderCan(i,FPOS[i],w.x,w.z,w.t,true,0.9))R.robAt={i,t:w.t,x:w.x,y:w.y,z:w.z};
     R.code='HR';R.hit=4;R.runs=1+bs.filter(b=>b!=null).length;R.rbi=R.runs;R.batterTo=4;R.desc='home run';
     R.runnerMoves=bs.map((b,k)=>b!=null?{from:k+1,to:4}:null).filter(Boolean);return R}
   // 2) caught in the air? earliest catchable moment for any fielder (fly balls, liners, pop-ups, foul pops in play)
@@ -83,13 +84,13 @@ function resolvePlay(B,ctx,rand){
       R.desc=(R.code==='LO'?'lines out to the ':R.code==='PO'?'pops out to the ':'flies out to the ')+FNAME[best.i]+(best.dive?' on a diving catch':'');
       if(!(-best.z>=Math.abs(best.x)-0.05))R.desc='fouls out to the '+FNAME[best.i];
       return finishOut(R,ctx,B)}
-    if(best.dive){R.dove=best.i}else{R.err=true;R.errBy=best.i}}
+    if(best.dive){R.dove=best.i;R.diveAt=best}else{R.err=true;R.errBy=best.i}}
   if(B.foul){R.code='FOUL';return R}
   // 3) on the ground: can an infielder (or pitcher / catcher) get to it?
   let gi=null;
   for(let k=0;k<n;k++){const t=P[k*4],x=P[k*4+1],y=P[k*4+2],z=P[k*4+3];if(air==null||t<air-0.05||y>1.4)continue;if(Math.hypot(x,z)>48)break;
     for(const i of[1,2,3,4,5,6]){if(fielderCan(i,FPOS[i],x,z,t,false,0.85)){gi={t,i,x,z,dive:false};break}
-      if(i!==1&&i!==2&&fielderCan(i,FPOS[i],x,z,t,false,1.8)&&rand()<0.4){gi={t,i,x,z,dive:true};break}}
+      if(i!==1&&i!==2&&fielderCan(i,FPOS[i],x,z,t,false,1.8)){if(rand()<0.4){gi={t,i,x,z,dive:true};break}if(!R.gDiveAt)R.gDiveAt={t,i,x,z}}}
     if(gi)break}
   const toF=toFirst(spd);
   if(gi&&!R.err){const gather=gi.dive?0.85:0.42,tF=gi.t+gather;let thr=null;

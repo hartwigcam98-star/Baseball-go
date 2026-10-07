@@ -56,7 +56,10 @@ async function playGame(cfg){
   const st=cfg.me.st,mine={contact:st.contact,power:st.power,eye:st.eye,speed:st.speed};
   const oppP=cfg.oppPitcher||makePitcher(cfg.lv,cfg.opp.team.pit,null);
   const myP={ovr:cfg.my.team.pit,control:cfg.my.team.pit,stuff:cfg.my.team.pit};
-  const g={score:[0,0],line:[[],[]],hits:[0,0],log:[],me:emptyLine(),spot:[0,0],inning:1,half:'top',over:false,myIdx,teams,oppP,lv:cfg.lv,innings:inn};
+  const g={score:[0,0],line:[[],[]],hits:[0,0],log:[],me:emptyLine(),spot:[0,0],inning:1,half:'top',over:false,myIdx,teams,oppP,lv:cfg.lv,innings:inn,pit:null};
+  // a two-way player's start: you pitch the first few innings (your pitching ratings), the bullpen finishes
+  const ps=cfg.me.pst,myStart=!!(cfg.myStart&&ps),pitInn=cfg.lv==='hs'?5:6,meP=myStart?{ovr:Math.round((ps.velo+ps.control+ps.stuff)/3),control:ps.control,stuff:ps.stuff}:null;
+  if(myStart)g.pit={outs:0,h:0,r:0,bb:0,k:0,bf:0,hr:0};let livePit=0;
   // the order: nine hitters; yours is at meSpot (1-based); teammates and opponents vary around the team's level
   const order=t=>{const base=t.off;return Array.from({length:9},(_,i)=>{const q=base+(i<5?4-i:-(i-4)*2)+rnd(-4,4);return{contact:q,power:q+rnd(-8,8),eye:q+rnd(-6,6),speed:clamp(q+rnd(-15,15),20,95)}})};
   const lineups=[order(teams[0]),order(teams[1])];
@@ -69,7 +72,7 @@ async function playGame(cfg){
       let outs=0,bases=[null,null,null],runs=0,meOn=-1;
       g.log.push({h:true,t:(half==='top'?'Top ':'Bottom ')+ord(i)});
       while(outs<3){
-        const k=g.spot[bat]%9,isMe=bat===myIdx&&k===meSpot-1,b=isMe?mine:lineups[bat][k],pit=bat===myIdx?{ovr:oppP.ovr,control:oppP.control,stuff:oppP.stuff}:myP;
+        const k=g.spot[bat]%9,isMe=bat===myIdx&&k===meSpot-1,b=isMe?mine:lineups[bat][k],mePitching=myStart&&bat!==myIdx&&i<=pitInn,pit=bat===myIdx?{ovr:oppP.ovr,control:oppP.control,stuff:oppP.stuff}:mePitching?meP:myP;
         let res;
         const sit={inning:i,half,outs,bases:bases.slice(),score:g.score.slice()};
         // key moments: only the at-bats that matter are played live (the rest are simulated with your ratings)
@@ -78,10 +81,18 @@ async function playGame(cfg){
           const key=(late&&close)||(risp&&close&&i>=3)||(i>=inn&&diff<=0)||(liveCount===0&&i>=Math.ceil(inn/2));
           live=key&&liveCount<4;
           if(live)head=(diff<0?'Down '+(-diff):diff>0?'Up '+diff:'Tied')+', '+(runnersText2(bases)||'bases empty')+', '+(half==='top'?'top':'bottom')+' of the '+ord(i)+(late&&close?'. Big spot!':'.')}
-        if(live){liveCount++;res=await cfg.live({sit,g,ab:liveCount,pitcher:oppP,teams:teams.map(t=>t.short),head})}
+        // pitching key moments: the first batter you face, jams, and late close spots
+        let pLive=false;if(mePitching&&cfg.livePitch){const diff=g.score[myIdx]-g.score[1-myIdx],risp=bases[1]!=null||bases[2]!=null;
+          pLive=livePit<6&&((i===1&&outs<2&&livePit<2)||(risp&&Math.abs(diff)<=3)||(i>=pitInn-1&&Math.abs(diff)<=2&&outs===2));
+          if(pLive)head='You’re on the mound: '+(risp?'jam, '+runnersText2(bases)+', ':'')+outs+' out'+(outs===1?'':'s')+', '+(half==='top'?'top':'bottom')+' of the '+ord(i)+'.'}
+        if(pLive){livePit++;res=await cfg.livePitch({sit,g,bat:Object.assign({name:teams[bat].short+' #'+(k+1)},b),teams:teams.map(t=>t.short),head})}
+        else if(live){liveCount++;res=await cfg.live({sit,g,ab:liveCount,pitcher:oppP,teams:teams.map(t=>t.short),head})}
         else if(isMe&&cfg.live)res=simPA(mine,pit,sit,opts)
         else res=simPA(b,pit,sit,opts);
         if(res.quit){g.quit=true;return g}
+        if(res.csOuts)outs+=res.csOuts;
+        if(res.noPA){if(res.endInning){outs=3;bases=[null,null,null]}g.log.push({t:'Runner caught stealing to end the inning',s:g.score.slice()});continue}
+        if(mePitching&&g.pit){const P=g.pit;P.bf++;P.outs+=res.out||0;P.r+=res.runs||0;if(['1B','2B','3B','HR'].includes(res.code))P.h++;if(res.code==='HR')P.hr++;if(res.code==='BB'||res.code==='HBP')P.bb++;if(res.code==='K')P.k++}
         // where did you go if you were on base?
         if(meOn>=0&&!isMe){const mv=(res.runnerMoves||[]).find(m=>m.from===meOn+1);if(mv){if(mv.to>=4){g.me.r++;meOn=-1}else meOn=mv.to-1}else if(res.bases&&res.bases[meOn]==null)meOn=-1}
         if(isMe){lineAdd(g.me,res);meOn=-1;if(res.code==='HR')g.me.r++;else{const q={'1B':0,'2B':1,'3B':2,BB:0,HBP:0,E:0,FC:0}[res.code];if(q!=null)meOn=q}}

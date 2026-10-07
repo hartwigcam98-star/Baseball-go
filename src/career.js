@@ -122,9 +122,10 @@ function myTeamFor(lv){if(lv==='hs')return makeTeam(save.school,save.school.slic
   const o=save.org;if(lv==='mlb')return makeTeam(o.city+' '+o.name,abbr(o.city),'mlb',o.hue,2);
   return makeTeam(o.name+' '+AFFIL[lv],abbr(o.city),lv,o.hue,1)}
 function newSeason(){
-  const lv=save.level;save.team=myTeamFor(lv);save.opps=teamsFor(lv);save.seasonLine=emptyLine();save.gi=0;save.recent=[];save.post=null;save.wl=[0,0];
+  const lv=save.level;save.team=myTeamFor(lv);save.opps=teamsFor(lv);save.seasonLine=emptyLine();save.pitSeason={};save.gi=0;save.recent=[];save.post=null;save.wl=[0,0];
   const n=GAMES[lv];save.games=[];for(let i=0;i<n;i++)save.games.push({o:i%save.opps.length,home:i%2===0,res:null});
   save.games.sort(()=>Math.random()-0.5);save.lvlStart=save.level;save.allStar=false;
+  if(save.twoWay)save.games.forEach((g,i)=>{if(i%4===1)g.start=true});
   if(save.rivals){const k=Math.max(2,Math.round(n/6));for(let j=0;j<k;j++){const gi=Math.min(n-1,Math.round((j+0.6)*n/k));save.games[gi].rv=j%3}save.games[n-1].rv=save.games[n-1].rv!=null?save.games[n-1].rv:Math.floor(Math.random()*3)}}
 function promote(to,midSeason){const from=save.level;save.level=to;
   const done=save.games.slice(0,save.gi).filter(g=>g.res);save.byLevel[from]=addLine(save.byLevel[from]||emptyLine(),{});
@@ -147,6 +148,7 @@ function renderHub(){
   $('nextCard').innerHTML='<p class="eyebrow">Game '+(save.gi+1)+' of '+save.games.length+(save.post?' · '+esc(save.post.name):'')+'</p><h3 style="font-size:26px">'+(G0.home?'vs ':'at ')+esc(opp.name)+'</h3>'+
     '<div class="row"><span class="chip"><span class="dot" style="background:#'+new T.Color(opp.color).getHexString()+'"></span>'+esc(opp.short)+'</span><span class="chip">'+LEVELS[save.level].inn+' innings</span><span class="chip">'+PARKS[LEVELS[save.level].park].name+'</span><span class="chip">Batting '+ord(LEVELS[save.level].spot)+'</span></div>'+
     (G0.rv!=null&&save.rivals?(rv=>'<div class="opp"><p class="eyebrow">Rival on the mound · '+RIVAL_TYPES[rv.type].t+'</p><p style="font-weight:600;font-size:18px">'+esc(rv.name)+'</p><p class="quote">“'+esc(pick(RIVAL_TYPES[rv.type].lines))+'”</p><p class="muted" style="font-size:13px">Head-to-head: '+h2h(rv)+'</p></div>')(save.rivals[G0.rv]):'')+
+    (G0.start&&save.twoWay?'<p class="note"><b>You’re starting on the mound tonight.</b> You’ll pitch the big spots in the first innings, and still bat.</p>':'')+
     '<label class="toggle" style="padding:8px 10px"><input type="checkbox" id="keyOnly" '+(save.keyOnly!==false?'checked':'')+'><span><b>Key moments only.</b> Play the at-bats that matter (up to 4); the rest are simmed with your ratings.</span></label>'+
     (save.recent.length?'<p class="muted" style="font-size:14px">Last games: '+save.recent.slice(-5).map(x=>'<b class="'+(x.w?'tw':'tl')+'">'+(x.w?'W':'L')+'</b> '+x.s).join(' · ')+'</p>':'')+
     '<div class="row"><button class="go" id="btnPlay" style="flex:1">Play game</button><button class="ghost" id="btnSim">Sim game</button>'+(left>1?'<button class="ghost" id="btnSim5">Sim '+Math.min(5,left)+'</button>':'')+'</div>';
@@ -157,9 +159,9 @@ function renderHub(){
   // training
   const pts=save.xp;
   $('trainCard').innerHTML='<div class="row between"><h3>Training</h3><span class="chip num">'+pts+' training pts</span></div>'+
-    [...BAT,...GLOVE].map(([k,l,d])=>{const v=save.st[k],c=trainCost(v);return'<div class="stat"><span title="'+esc(d)+'">'+l+'</span><div class="bar"><i style="width:'+v+'%"></i></div><b class="num sv">'+v+'</b><button data-k="'+k+'" '+(v>=99||pts<c?'disabled':'')+'>+1 · '+c+'</button></div>'}).join('')+
+    [...BAT,...GLOVE,...(save.twoWay?PITCH:[])].map(([k,l,d])=>{const v=save.st[k],c=trainCost(v);return'<div class="stat"><span title="'+esc(d)+'">'+l+'</span><div class="bar"><i style="width:'+v+'%"></i></div><b class="num sv">'+v+'</b><button data-k="'+k+'" '+(v>=99||pts<c?'disabled':'')+'>+1 · '+c+'</button></div>'}).join('')+
     '<p class="muted" style="font-size:13px">Contact grows your swing zone, Power your exit velocity, Eye how soon you read the pitch. Fielding and Arm are simulated for now.</p>'+
-    (save.twoWay?'<div class="note"><b>Two-way:</b> pitching arrives in a later update. Your arm is on the roster: Velocity '+save.st.velo+' · Control '+save.st.control+' · Stuff '+save.st.stuff+'.</div>':'')+
+    (save.twoWay?'<div class="note"><b>Two-way:</b> you start every fourth game on the mound ('+myVelo(save.st)+' mph fastball, '+MY_PITCHES(save.st).map(m=>PT[m[0]].s).join(', ')+'). Train Velocity, Control and Stuff above; more Stuff unlocks more pitches.'+(save.pitSeason&&save.pitSeason.outs?' This season: '+ipStr(save.pitSeason.outs)+' IP, '+eraOf(save.pitSeason).toFixed(2)+' ERA, '+save.pitSeason.k+' K.':'')+'</div>':'')+
     (save.level!=='hs'&&save.level!=='college'?'<h3 style="margin-top:4px">Off-season camps</h3><p class="muted" style="font-size:13px;margin-top:-6px">Spend salary and bonus money on extra training. Bank: '+money(save.money)+'</p>'+CAMPS.map((c,i)=>'<div class="row between"><span>'+c.n+' <span class="muted">+'+c.xp+' pts</span></span><button data-camp="'+i+'" '+(save.money<c.cost?'disabled':'')+'>'+money(c.cost)+'</button></div>').join(''):'');
   $('trainCard').querySelectorAll('button[data-k]').forEach(b=>b.onclick=()=>{const k=b.dataset.k,c=trainCost(save.st[k]);if(save.xp>=c&&save.st[k]<99){save.xp-=c;save.st[k]++;store();renderHub()}});
   $('trainCard').querySelectorAll('button[data-camp]').forEach(b=>b.onclick=()=>{const c=CAMPS[+b.dataset.camp];if(save.money>=c.cost){save.money-=c.cost;save.xp+=c.xp;store();renderHub()}});
@@ -180,11 +182,11 @@ function statTable(rows){return'<table class="ftab"><tr><th></th><th>G</th><th>A
 /* ================= playing and simulating games ================= */
 function gameCfg(){const g=save.games[save.gi],opp=save.opps[g.o],lv=save.level,rv=g.rv!=null&&save.rivals?save.rivals[g.rv]:null;
   const pitChar=rv?rv.id:pick(ROSTER.filter(r=>r.id!==save.char)).id;
-  return{lv,home:g.home,opp:{team:opp},my:{team:save.team},me:{name:RBYID[save.char].name,id:save.char,st:save.st},pitChar,rival:rv,keyOnly:save.keyOnly!==false,
+  return{lv,home:g.home,opp:{team:opp},my:{team:save.team},me:{name:RBYID[save.char].name,id:save.char,st:save.st,pst:save.twoWay?save.st:null},myStart:!!(save.twoWay&&g.start),oppBatChar:pick(ROSTER.filter(r=>r.id!==save.char&&(!rv||r.id!==rv.id))).id,pitChar,rival:rv,keyOnly:save.keyOnly!==false,
     oppPitcher:rv?rivalPitcher(rv,lv,opp.pit):makePitcher(lv,opp.pit,pitChar)}}
 async function playCareerGame(live){
   const cfg=gameCfg();
-  if(live){await enterPark(cfg);cfg.live=liveAB(cfg)}
+  if(live){await enterPark(cfg);cfg.live=liveAB(cfg);if(cfg.myStart)cfg.livePitch=livePitch(cfg)}
   PARK=PARKS[LEVELS[cfg.lv].park];
   const g=await playGame(cfg);
   ABQ.quit=null;if(g.quit){renderHub();return}
@@ -196,12 +198,14 @@ function runSync(cfg){// synchronous copy of playGame's loop for simulated games
   const L=LEVELS[cfg.lv],inn=L.inn,meSpot=L.spot,teams=cfg.home?[cfg.opp.team,cfg.my.team]:[cfg.my.team,cfg.opp.team],myIdx=cfg.home?1:0;
   const st=cfg.me.st,mine={contact:st.contact,power:st.power,eye:st.eye,speed:st.speed},oppP=cfg.oppPitcher,myP={ovr:cfg.my.team.pit,control:cfg.my.team.pit,stuff:cfg.my.team.pit};
   const g={score:[0,0],line:[[],[]],hits:[0,0],log:[],me:emptyLine(),spot:[0,0],myIdx,teams,oppP,innings:inn};
+  const ps=cfg.me.pst,myStart=!!(cfg.myStart&&ps),pitInn=cfg.lv==='hs'?5:6,meP=myStart?{ovr:Math.round((ps.velo+ps.control+ps.stuff)/3),control:ps.control,stuff:ps.stuff}:null;if(myStart)g.pit={outs:0,h:0,r:0,bb:0,k:0,bf:0,hr:0};
   const order=t=>Array.from({length:9},(_,i)=>{const q=t.off+(i<5?4-i:-(i-4)*2)+rnd(-4,4);return{contact:q,power:q+rnd(-8,8),eye:q+rnd(-6,6),speed:clamp(q+rnd(-15,15),20,95)}});
   const lineups=[order(teams[0]),order(teams[1])],opts={err:L.err,arm:L.arm};let over=false;
   for(let i=1;i<inn+7&&!over;i++)for(const half of['top','bottom']){const bat=half==='top'?0:1;if(half==='bottom'&&i>=inn&&g.score[1]>g.score[0]){over=true;break}
     let outs=0,bases=[null,null,null],runs=0,meOn=-1;
-    while(outs<3){const k=g.spot[bat]%9,isMe=bat===myIdx&&k===meSpot-1,b=isMe?mine:lineups[bat][k],pit=bat===myIdx?oppP:myP;
+    while(outs<3){const k=g.spot[bat]%9,isMe=bat===myIdx&&k===meSpot-1,b=isMe?mine:lineups[bat][k],mp=myStart&&bat!==myIdx&&i<=pitInn,pit=bat===myIdx?oppP:mp?meP:myP;
       const res=simPA(b,pit,{outs,bases},opts);
+      if(mp){const P=g.pit;P.bf++;P.outs+=res.out||0;P.r+=res.runs||0;if(['1B','2B','3B','HR'].includes(res.code))P.h++;if(res.code==='HR')P.hr++;if(res.code==='BB'||res.code==='HBP')P.bb++;if(res.code==='K')P.k++}
       if(meOn>=0&&!isMe){const mv=(res.runnerMoves||[]).find(m=>m.from===meOn+1);if(mv){if(mv.to>=4){g.me.r++;meOn=-1}else meOn=mv.to-1}else if(res.bases&&res.bases[meOn]==null)meOn=-1}
       if(isMe){lineAdd(g.me,res);meOn=-1;if(res.code==='HR')g.me.r++;else{const q={'1B':0,'2B':1,'3B':2,BB:0,HBP:0,E:0,FC:0}[res.code];if(q!=null)meOn=q}}
       outs+=res.out||0;runs+=res.runs||0;g.score[bat]+=res.runs||0;if(['1B','2B','3B','HR'].includes(res.code))g.hits[bat]++;bases=outs>=3?[null,null,null]:(res.bases||bases);if(outs>=3)meOn=-1;g.spot[bat]++;
@@ -216,6 +220,8 @@ function afterGame(g,live,cfg,quiet){
   addLine(save.seasonLine,me);addLine(save.career,me);save.byLevel[save.level]=addLine(save.byLevel[save.level]||emptyLine(),me);
   save.wl[g.won?0:1]++;save.recent.push({w:g.won,s});save.gi++;
   let xp=xpFor(me,g.won,live);
+  if(g.pit){const P=g.pit;P.g=1;save.pitSeason=addLine(save.pitSeason||{},P);save.pitCareer=addLine(save.pitCareer||{},P);xp+=Math.round((P.outs+P.k*2+(g.won&&P.outs>=15?8:0))*(live?1:0.6));
+    g.pitNote='On the mound: '+ipStr(P.outs)+' IP, '+P.h+' H, '+P.r+' R, '+P.bb+' BB, '+P.k+' K'}
   if(cfg.rival){const rv=cfg.rival;rv.ab+=me.ab;rv.h+=me.h;rv.hr+=me.hr;rv.k+=me.k;rv.bb+=me.bb;g.rivalNote=me.hr?'You took '+rv.name+' deep! Head-to-head: '+h2h(rv)+'.':me.h?'You got to '+rv.name+'. Head-to-head: '+h2h(rv)+'.':rv.name+' got the better of you. Head-to-head: '+h2h(rv)+'.';if(me.h)xp+=8+me.hr*10}
   save.xp+=xp;
   const pay=MONEY[save.level]/GAMES[save.level]*(save.level==='mlb'?salaryMult():1);if(pay){save.money+=pay;save.earnings+=pay}
@@ -223,7 +229,7 @@ function afterGame(g,live,cfg,quiet){
   const promo=checkPromotion();
   store();
   if(quiet){if(promo)save.flash=promo;return}
-  if(g.rivalNote)notes.unshift(g.rivalNote);
+  if(g.rivalNote)notes.unshift(g.rivalNote);if(g.pitNote)notes.unshift(g.pitNote);
   showGameResult(g,xp,notes,promo,cfg)}
 function salaryMult(){const s=save.mlbSeasons;const r=rate(save.byLevel.mlb||emptyLine());return(1+s*0.6)*(1+Math.max(0,r.ops-0.72)*4)}
 function checkMilestones(me){const n=[],c=save.career,M=save.milestones;
@@ -247,17 +253,29 @@ function showGameResult(g,xp,notes,promo,cfg){
   $('resNext').onclick=()=>renderHub();show('result')}
 
 /* ---- live at-bats inside a game ---- */
-async function enterPark(cfg){
+async function enterPark(cfg,role,keep){
   const fl=LIGHT.filter(x=>x!==cfg.me.id&&x!==cfg.pitChar);
-  await setupScene({park:LEVELS[cfg.lv].park,batterId:cfg.me.id,pitcherId:cfg.pitChar,fielderIds:[fl[0],fl[1]],runnerId:fl[2]||fl[0],homeColor:(cfg.home?cfg.my.team:cfg.opp.team).color,defHue:cfg.opp.team.hue,myHue:cfg.my.team.hue});
+  if(role==='pitch')await setupScene({role:'pitch',keepMeters:keep,park:LEVELS[cfg.lv].park,batterId:cfg.oppBatChar||fl[3]||fl[0],pitcherId:cfg.me.id,fielderIds:[fl[0],fl[1]],runnerId:fl[2]||fl[0],homeColor:(cfg.home?cfg.my.team:cfg.opp.team).color,defHue:cfg.my.team.hue,myHue:cfg.opp.team.hue});
+  else await setupScene({role:'bat',keepMeters:keep,park:LEVELS[cfg.lv].park,batterId:cfg.me.id,pitcherId:cfg.pitChar,fielderIds:[fl[0],fl[1]],runnerId:fl[2]||fl[0],homeColor:(cfg.home?cfg.my.team:cfg.opp.team).color,defHue:cfg.opp.team.hue,myHue:cfg.my.team.hue});
   sndResume();}
+/* live pitching: same flow as a live at-bat, from the mound */
+function livePitch(cfg){let lastLog=0;
+  return(ctx)=>new Promise(res=>{
+    const g=ctx.g,news=g.log.slice(lastLog);lastLog=g.log.length;
+    const simMe=()=>{const ps=cfg.me.pst;return simPA(ctx.bat,{ovr:Math.round((ps.velo+ps.control+ps.stuff)/3),control:ps.control,stuff:ps.stuff},ctx.sit,{err:LEVELS[cfg.lv].err,arm:LEVELS[cfg.lv].arm})};
+    if(g.simRest){res(simMe());return}
+    ABQ.quit=()=>{A=null;$('between').hidden=true;res({quit:true})};
+    const go=async()=>{$('between').hidden=true;if(!G||G.role!=='pitch')await enterPark(cfg,'pitch',true);
+      g.pitches=g.pitches||0;startPitchPA({lv:cfg.lv,me:{st:cfg.me.pst},bat:ctx.bat,sit:ctx.sit,teams:ctx.teams,errRate:LEVELS[cfg.lv].err*0.6,arm:LEVELS[cfg.lv].arm,pitchCount:g.pitches,
+        onDone:r=>{g.pitches+=A?A.pitches:0;lastLog=g.log.length+1;res(r)}})};
+    betweenPanel(g,news,Object.assign({},ctx,{pitcher:{name:'You',velo:myVelo(cfg.me.pst),mix:MY_PITCHES(cfg.me.pst)}}),go,()=>{$('between').hidden=true;g.simRest=true;res(simMe())})});}
 function liveAB(cfg){let lastLog=0;
   return(ctx)=>new Promise(res=>{
     const g=ctx.g,news=g.log.slice(lastLog);lastLog=g.log.length;
     const simMe=()=>{const st=cfg.me.st;return simPA({contact:st.contact,power:st.power,eye:st.eye,speed:st.speed},ctx.pitcher,ctx.sit,{err:LEVELS[cfg.lv].err,arm:LEVELS[cfg.lv].arm})};
     if(g.simRest){res(simMe());return}
     ABQ.quit=()=>{A=null;$('between').hidden=true;res({quit:true})};
-    const go=()=>{$('between').hidden=true;
+    const go=async()=>{$('between').hidden=true;if(G&&G.role==='pitch')await enterPark(cfg,'bat',true);
       startPA({lv:cfg.lv,st:cfg.me.st,pitcher:ctx.pitcher,sit:ctx.sit,teams:ctx.teams,ab:ctx.ab,errRate:LEVELS[cfg.lv].err,arm:LEVELS[cfg.lv].arm,
         intro:'At-bat '+ctx.ab+' · '+(ctx.sit.outs?ctx.sit.outs+' out'+(ctx.sit.outs>1?'s':''):'No outs')+(runnersText(ctx.sit.bases)?' · '+runnersText(ctx.sit.bases):''),
         onDone:r=>{lastLog=g.log.length+1;res(r)}})};
@@ -362,3 +380,6 @@ async function quickGame(id,st,lv){
   const me=g.me;$('resBanner').textContent=g.won?'Win':'Loss';$('resBanner').className='banner '+(g.won?'w':'l');$('resScore').textContent=g.teams[0].short+' '+g.score[0]+' · '+g.teams[1].short+' '+g.score[1];
   $('resLine').innerHTML=lineScore(g);$('resMe').innerHTML='<p class="eyebrow">Your line</p><p class="big num">'+me.h+'-for-'+me.ab+(me.hr?', '+me.hr+' HR':'')+(me.rbi?', '+me.rbi+' RBI':'')+'</p>';
   $('resLog').innerHTML=g.log.filter(x=>x.me).map(x=>'<li>'+esc(x.t)+'</li>').join('');$('resNext').onclick=()=>renderTitle();show('result')}
+
+function ipStr(outs){return Math.floor(outs/3)+(outs%3?'.'+outs%3:'')}
+function eraOf(P){return P&&P.outs?(P.r*27/P.outs):0}

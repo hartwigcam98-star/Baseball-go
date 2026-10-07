@@ -251,6 +251,12 @@ textarea{width:100%;background:var(--panel-2);border:1px solid var(--line);borde
 #replayTag{position:absolute;left:12px;top:calc(env(safe-area-inset-top,0px) + 108px);display:flex;align-items:center;gap:8px;background:rgba(5,12,20,.86);border:1px solid var(--line);border-radius:10px;padding:6px 12px;font-family:var(--display);font-weight:800;font-size:18px;letter-spacing:.12em;text-transform:uppercase;pointer-events:none}
 #replayTag i{width:10px;height:10px;border-radius:50%;background:#F28A78;animation:blink 1s steps(2) infinite}#replayTag small{font-family:var(--body);font-weight:500;font-size:12px;letter-spacing:0;text-transform:none;color:var(--muted)}
 #ab.mode #meters{display:none}
+#pitchBar{display:none;gap:6px;flex-wrap:wrap;pointer-events:auto}#ab.pitching #pitchBar{display:flex}#ab.pitching #stype,#ab.pitching #blastBtn,#ab.pitching #aimBtn{display:none}
+#pitchBar button{padding:6px 12px;font-size:14px;background:rgba(5,12,20,.82);font-family:var(--display);letter-spacing:.06em;text-transform:uppercase;border-color:var(--pc)}#pitchBar button[aria-pressed=true]{background:var(--pc);color:#10202B}
+#pmeter{position:absolute;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top,0px) + 150px);width:min(300px,80vw);height:22px;border-radius:11px;background:rgba(5,12,20,.88);border:2px solid var(--line);overflow:hidden;pointer-events:none}
+#pmGreen{position:absolute;top:0;bottom:0;background:#74D493}#pmRed{position:absolute;top:0;bottom:0;left:93%;right:0;background:#F28A78}#pmNeedle{position:absolute;top:-2px;bottom:-2px;width:4px;margin-left:-2px;background:#fff;box-shadow:0 0 6px #fff}
+#qte{position:absolute;left:50%;top:46%;transform:translate(-50%,-50%);z-index:20;padding:18px 34px;border-radius:16px;background:#F2C230;color:#2B1200;border:3px solid #fff;font-family:var(--display);font-weight:800;font-size:30px;letter-spacing:.08em;animation:pulse .5s infinite;touch-action:none}
+#stealBtn{position:absolute;right:12px;bottom:calc(env(safe-area-inset-bottom,0px) + 250px);z-index:5;padding:8px 14px;background:rgba(5,12,20,.86);border-color:#4CA3FF;color:#4CA3FF;font-family:var(--display);letter-spacing:.08em;text-transform:uppercase;touch-action:none}
 #ab.rp .ctl,#ab.rp #grades{visibility:hidden}
 #modeEnd{position:fixed;inset:0;z-index:55;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(5,12,20,.7)}#modeEnd .card{max-width:380px;width:100%;text-align:center}
 #grades{position:absolute;left:0;right:0;top:calc(34% + 64px);display:flex;justify-content:center;gap:8px;pointer-events:none;opacity:0;transition:opacity .2s}
@@ -376,6 +382,9 @@ textarea{width:100%;background:var(--panel-2);border:1px solid var(--line);borde
     <p id="ptype" hidden></p>
   </div>
   <div id="flash"></div>
+  <div id="pmeter" hidden><div id="pmGreen"></div><div id="pmRed"></div><div id="pmNeedle"></div></div>
+  <button id="qte" hidden>DIVE!</button>
+  <button id="stealBtn" hidden>Steal 2nd</button>
   <div id="fire" hidden>On fire</div>
   <div id="call"></div>
   <div id="grades"></div>
@@ -383,6 +392,7 @@ textarea{width:100%;background:var(--panel-2);border:1px solid var(--line);borde
     <div class="row between ctl">
       <div class="lcol">
         <div id="meters"><button id="turboBtn" disabled><span>Turbo</span><span class="pips"></span></button><button id="blastBtn" disabled><span>Big Blast</span><b><i></i></b></button></div>
+        <div id="pitchBar"></div>
         <div id="stype"><button data-t="contact">Contact</button><button data-t="normal">Normal</button><button data-t="power">Power</button><button data-t="bunt">Bunt</button></div>
       </div>
       <button id="swingBtn" aria-label="Swing">Swing</button>
@@ -552,6 +562,7 @@ function resolvePlay(B,ctx,rand){
   if(B.hr){// a leaping catch at the wall?
     const w=B.wall,i=w.x<-25?7:w.x>25?9:8;
     if(w.y<PARK_WALL()+0.55&&fielderCan(i,FPOS[i],w.x,w.z,w.t,true,0.6)&&rand()<0.45){R.code='FO';R.out=1;R.fielder=i;R.t=w.t;R.catchAt=[w.x,w.y,w.z];R.desc='robbed at the wall by the '+FNAME[i];R.robbed=true;R.air=true;return finishOut(R,ctx,B)}
+    if(w.y<PARK_WALL()+1.4&&fielderCan(i,FPOS[i],w.x,w.z,w.t,true,0.9))R.robAt={i,t:w.t,x:w.x,y:w.y,z:w.z};
     R.code='HR';R.hit=4;R.runs=1+bs.filter(b=>b!=null).length;R.rbi=R.runs;R.batterTo=4;R.desc='home run';
     R.runnerMoves=bs.map((b,k)=>b!=null?{from:k+1,to:4}:null).filter(Boolean);return R}
   // 2) caught in the air? earliest catchable moment for any fielder (fly balls, liners, pop-ups, foul pops in play)
@@ -567,13 +578,13 @@ function resolvePlay(B,ctx,rand){
       R.desc=(R.code==='LO'?'lines out to the ':R.code==='PO'?'pops out to the ':'flies out to the ')+FNAME[best.i]+(best.dive?' on a diving catch':'');
       if(!(-best.z>=Math.abs(best.x)-0.05))R.desc='fouls out to the '+FNAME[best.i];
       return finishOut(R,ctx,B)}
-    if(best.dive){R.dove=best.i}else{R.err=true;R.errBy=best.i}}
+    if(best.dive){R.dove=best.i;R.diveAt=best}else{R.err=true;R.errBy=best.i}}
   if(B.foul){R.code='FOUL';return R}
   // 3) on the ground: can an infielder (or pitcher / catcher) get to it?
   let gi=null;
   for(let k=0;k<n;k++){const t=P[k*4],x=P[k*4+1],y=P[k*4+2],z=P[k*4+3];if(air==null||t<air-0.05||y>1.4)continue;if(Math.hypot(x,z)>48)break;
     for(const i of[1,2,3,4,5,6]){if(fielderCan(i,FPOS[i],x,z,t,false,0.85)){gi={t,i,x,z,dive:false};break}
-      if(i!==1&&i!==2&&fielderCan(i,FPOS[i],x,z,t,false,1.8)&&rand()<0.4){gi={t,i,x,z,dive:true};break}}
+      if(i!==1&&i!==2&&fielderCan(i,FPOS[i],x,z,t,false,1.8)){if(rand()<0.4){gi={t,i,x,z,dive:true};break}if(!R.gDiveAt)R.gDiveAt={t,i,x,z}}}
     if(gi)break}
   const toF=toFirst(spd);
   if(gi&&!R.err){const gather=gi.dive?0.85:0.42,tF=gi.t+gather;let thr=null;
@@ -1399,10 +1410,10 @@ let aimMode='auto';try{const m=localStorage.getItem('bg-aim');if(AIMS[m])aimMode
 function renderAim(){const b=$('aimBtn');if(b)b.textContent='Aim: '+AIMS[aimMode].n}
 /* load characters and build the scene. cfg: {park, batterId, pitcherId, fielderIds:[a,b], homeColor, defHue, myHue} */
 async function setupScene(cfg){
-  initGL();show('ab');$('ab').classList.remove('mode');$('loading').hidden=false;$('loadMsg').textContent='Loading the ballpark…';
+  initGL();show('ab');$('ab').classList.remove('mode','pitching');$('loading').hidden=false;$('loadMsg').textContent='Loading the ballpark…';
   W3.homeColor=cfg.homeColor||0x2E5FA8;
   if(G)disposeScene();
-  buildPark(cfg.park);
+  if(!W3.park||PARK.kind!==cfg.park)buildPark(cfg.park);
   const fid=cfg.fielderIds&&cfg.fielderIds.length?cfg.fielderIds:[pick(LIGHT),pick(LIGHT)];
   const ids=[cfg.batterId,cfg.pitcherId,...fid,cfg.runnerId||fid[0]];
   $('loadMsg').textContent='Players warming up…';
@@ -1416,7 +1427,7 @@ async function setupScene(cfg){
   G.batter.pose='stance';G.catcher.pose='cr';
   resetPositions();
   // calibrate where the sweet spot is at contact for this batter, so the swing can be steered to the pitch
-  calibrateSwing();resetMeters();if(W3.board){W3.board.visible=true}
+  calibrateSwing();if(!cfg.keepMeters)resetMeters();G.role=cfg.role||'bat';if(W3.board){W3.board.visible=true}
   $('loading').hidden=true;
 }
 function disposeScene(){const all=[G.batter,G.pitcher,G.catcher,...G.fielders.slice(3),...G.runners];all.forEach(p=>p&&p.dispose(W3.scene));G=null}
@@ -1492,8 +1503,8 @@ function showGrades(c){const g=$('grades');if(!g)return;const t=gradeTiming(c),k
 /* ================= plate appearance flow =================
    cfg: {st (batter ratings), pitcher, sit:{inning,half,outs,bases,score,count}, practice, label, onDone(result)} */
 function startPA(cfg){
-  A={cfg,count:[0,0],pitches:0,state:'ready',t0:now()+rnd(700,1100),pitch:null,swing:null,log:[],res:null,practice:!!cfg.practice,ptSeen:[]};
-  resetPositions();placeRunners(cfg.sit?cfg.sit.bases:null);
+  A={cfg,outs0:cfg.sit?cfg.sit.outs:0,count:[0,0],pitches:0,state:'ready',t0:now()+rnd(700,1100),pitch:null,swing:null,log:[],res:null,practice:!!cfg.practice,ptSeen:[]};
+  resetPositions();placeRunners(cfg.sit?cfg.sit.bases:null);if(W3.camPos.z<0){W3.camPos.set(0.3,2.05,5.3);W3.camLook.set(-0.3,0.9,-9)}
   W3.mark.visible=false;W3.land.visible=false;W3.ball.visible=true;FX.tp=[];
   A.pci={x:0,y:0.76};A.guess=null;renderGuess();W3.pci.visible=true;W3.zone.visible=true;if(W3.tracer)W3.tracer.visible=false;$('replayTag').hidden=true;
   renderHUD();renderAim();say(cfg.intro||AIMS[aimMode].hint+'.');
@@ -1576,7 +1587,8 @@ function inPlay(c){
   else if(c.perfect||B.hr){slowMo(true,0.3);A.slowUntil=now()+(B.hr?240:150);if(c.perfect)flash('rgba(255,255,255,.6)')}
   if(G.batter.bat)G.batter.bat.userData.wood.emissive.setHex(0);
   if(R.code==='FOUL'){A.foulPlay=true}
-  planPlay(B,R);
+  A.steal=null;A.qte=qteSetup(R);
+  planPlay(B,R);A.stretch=stretchSetup(R);
 }
 /* the play script: fielders, throws, runners */
 function planPlay(B,R){
@@ -1605,7 +1617,8 @@ function planPlay(B,R){
 function baseLerp(from,to,d){// distance d along the bases from base 'from'
   let k=from;while(d>BASE_L&&k<to){d-=BASE_L;k++}if(k>=to)return BASES[to%4].clone();return BASES[k%4].clone().lerp(BASES[(k+1)%4],clamp(d/BASE_L,0,1))}
 function tickPlay(dt){
-  const S=A.script,R=A.R,B=A.B,t=(now()-A.tP)/1000;
+  let S=A.script,R=A.R,B=A.B,t=(now()-A.tP)/1000;
+  if(A.qte)qteTick(t);if(A.stretch)stretchTick(t);S=A.script;R=A.R;B=A.B;
   // ball: in flight until fielded, then carried / thrown
   let bp;
   if(R.code==='HR'&&!R.inside||R.code==='FOUL'||!R.t||t<R.t){const p=ballAt(B,t);bp=new T.Vector3(p[0],p[1],p[2])}
@@ -1664,9 +1677,10 @@ function endPA(r){
   else if(r.code==='BB'||r.code==='HBP'){const b=sit.bases.slice(),nb=[A.cfg.st.speed,null,null];let runs=0;
     const mv=[];if(b[0]!=null){nb[1]=b[0];mv.push({from:1,to:2});if(b[1]!=null){nb[2]=b[1];mv.push({from:2,to:3});if(b[2]!=null){runs=1;mv.push({from:3,to:4})}}else nb[2]=b[2]}else{nb[1]=b[1];nb[2]=b[2]}
     res.out=0;res.bases=nb;res.runs=runs;res.rbi=runs;res.runnerMoves=mv;res.desc=r.code==='BB'?'walks':'is hit by a pitch'}
+  if(A.cfg.sit&&A.outs0!=null)res.csOuts=A.cfg.sit.outs-A.outs0;
   A.res=res;A.state='done';A.tDone=now();
   const big=['1B','2B','3B','HR'].includes(res.code);
-  rewardMeters(res);
+  if(!A.pitching)rewardMeters(res);else{const c=res.code;if(res.out)gainTurbo(35)}
   showCall(res.code==='HR'&&distFt()>30?'Home run! '+Math.round(distFt())+' ft':CODE_TEXT[res.code]||res.code,false,big?'w':res.out?'l':'');
   if(res.code==='HR'){cheer(1);sndCrowd(1.2);kick(0.12)}else if(big){cheer(0.6);sndCrowd(0.8)}else if(res.out&&res.code!=='K'){sndCrowd(0.2)}
   if(res.runs&&!A.practice)say((res.runs===1?'A run scores':res.runs+' runs score')+'!');
@@ -1696,6 +1710,8 @@ function cleanupPlay(){W3.land.visible=false;if(G.dropped){W3.scene.remove(G.dro
 function stepAB(dt){
   if(!A)return;const t=now();
   if(A.slowUntil&&t>A.slowUntil){A.slowUntil=0;slowMo(false)}
+  if(A.pitching){stepPitch(dt);return}
+  if(A.steal&&(A.state==='wind'||A.state==='pitch'))stealTick();renderRunBtns();
   if(A.state==='ready'){if(t>=A.t0)deliver()}
   if(A.state==='wind'){
     if(!A.loaded&&t>=A.tLoad){A.loaded=true;const b=G.batter;b.pose=null;b.startSwing(swingType==='bunt'?'bn':'ld',0);b.swing.hold=true}
@@ -1718,6 +1734,7 @@ function stepAB(dt){
     // catcher's glove meets the ball
     catcherTrack(p);
     if(t>=A.tCatch&&!(A.swing&&!A.judged)){W3.ball.position.copy(pitchPos(p,(A.tCatch-A.tR)/1000));drawTracer(p);
+      if(A.steal&&stealResolve()){$('ptype').hidden=true;return}
       if(A.swing&&A.cfg.mode){showMark(pitchPos(p,pitchTimeAtZ(p,0)),0xF28A78);modeSwing('whiff');if(A.state==='pitch')nextPitchSoon()}
       else if(A.swing){const bp=pitchPos(p,pitchTimeAtZ(p,0));showMark(bp,0xF28A78);A.ptSeen.push({x:bp.x,y:bp.y,type:p.type,res:'W'});A.count[1]++;
         if(A.count[1]>=3){umpire('Strike three!');endPA({code:'K'});return}umpire('Strike!');renderHUD();nextPitchSoon()}
@@ -1750,7 +1767,8 @@ function renderHUD(){if(!A)return;const c=A.cfg,s=c.sit;
   const inn=(s.half==='top'?'▲ ':'▼ ')+ord(s.inning);
   $('bug').innerHTML='<div class="bl"><span class="tm">'+esc(c.teams[0])+' <b class="num">'+s.score[0]+'</b></span><span class="tm">'+esc(c.teams[1])+' <b class="num">'+s.score[1]+'</b></span></div>'+
     '<div class="bm"><span>'+inn+'</span>'+diamond(s.bases)+'<span class="outs">'+[0,1,2].map(i=>'<i class="'+(i<s.outs?'on':'')+'"></i>').join('')+'</span></div>';
-  $('who').textContent=(c.pitcher.name)+' · '+c.pitcher.velo+' mph'+(c.ab?' · AB '+c.ab:'');
+  $('who').textContent=A.pitching?'Batting: '+c.bat.name+' · you have thrown '+(c.pitchCount||0)+' pitches':(c.pitcher.name)+' · '+c.pitcher.velo+' mph'+(c.ab?' · AB '+c.ab:'');
+  $('swingBtn').textContent=A.pitching?'Pitch':'Swing';
 }
 function ord(n){return n+(n%10===1&&n!==11?'st':n%10===2&&n!==12?'nd':n%10===3&&n!==13?'rd':'th')}
 function diamond(b){const on=k=>b&&b[k]!=null?'on':'';return'<svg class="dia" viewBox="0 0 40 30" aria-label="bases"><rect class="'+on(1)+'" x="15" y="2" width="10" height="10" transform="rotate(45 20 7)"/><rect class="'+on(0)+'" x="26" y="12" width="10" height="10" transform="rotate(45 31 17)"/><rect class="'+on(2)+'" x="4" y="12" width="10" height="10" transform="rotate(45 9 17)"/></svg>'}
@@ -1766,6 +1784,7 @@ const cv=$('gl');let drag=null;
 function mPerPx(){const d=W3.cam.position.z,h=2*d*Math.tan(W3.cam.fov*Math.PI/360);return h/window.innerHeight}
 function movePCI(dx,dy,k){if(!A||aimMode==='auto')return;const m=mPerPx()*(k||1.25);A.pci.x=clamp(A.pci.x+dx*m,-0.55,0.55);A.pci.y=clamp(A.pci.y-dy*m,0.15,1.45)}
 cv.addEventListener('pointerdown',e=>{if(!A||CLK.paused)return;e.preventDefault();
+  if(A.pitching&&(A.state==='paim'||A.state==='pmeter')){aimTap(e);return}
   if(A.state==='play'||A.state==='done'||A.state==='replay'){skipPlay();return}
   try{cv.setPointerCapture(e.pointerId)}catch(_){}
   drag={id:e.pointerId,x:e.clientX,y:e.clientY,t:now(),moved:0,lx:e.clientX,ly:e.clientY};
@@ -1776,7 +1795,10 @@ cv.addEventListener('pointermove',e=>{if(!A)return;
 cv.addEventListener('pointerup',e=>{if(!drag||drag.id!==e.pointerId)return;const d=drag;drag=null;
   if(d.moved<22&&now()-d.t<450){if(A&&A.state==='ready')trySitOn(e);else swingAt(d.t)}});
 cv.addEventListener('pointercancel',()=>{drag=null});
-$('swingBtn').addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();if(!A)return;if(A.state==='play'||A.state==='done'){skipPlay();return}swingAt(now())});
+$('swingBtn').addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();if(!A)return;
+  if(A.pitching&&A.state==='paim'){startMeter();return}if(A.pitching&&A.state==='pmeter'){stopMeter();return}if(A.state==='play'||A.state==='done'){skipPlay();return}swingAt(now())});
+$('qte').addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();if(!A)return;if(A.qte&&!A.qte.done)qteTap();else if(A.stretch&&!A.stretch.done)stretchTap()});
+$('stealBtn').addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();armSteal()});
 window.addEventListener('keydown',e=>{if($('ab').hidden||!A)return;
   if(e.code==='Space'){e.preventDefault();if(A.state==='play'||A.state==='done')skipPlay();else swingAt(now())}
   const k=0.04;if(e.code==='ArrowLeft')A.pci.x=clamp(A.pci.x-k,-0.55,0.55);if(e.code==='ArrowRight')A.pci.x=clamp(A.pci.x+k,-0.55,0.55);if(e.code==='ArrowUp')A.pci.y=clamp(A.pci.y+k,0.15,1.45);if(e.code==='ArrowDown')A.pci.y=clamp(A.pci.y-k,0.15,1.45)});
@@ -1792,7 +1814,8 @@ function loop(t){
   const dt=dtr*CLK.ts;
   stepAB(dt);
   // PCI follows its position, sized to the swing type
-  if(A){const c=A.cfg.st.contact,rx=pciR(c,swingType);W3.pci.position.set(A.pci.x,A.pci.y,0.0);W3.pci.scale.set(rx,rx*0.8,1);
+  if(A&&A.pitching){W3.pci.visible=false;W3.tring.visible=false;if(A.state==='paim'||A.state==='pmeter'){G.pitcher.pose='pt';G.pitcher.poseU=0}if(A.state==='paim'||A.state==='pmeter'||A.state==='wind')W3.ball.position.copy(G.pitcher.handWorld())}
+  else if(A){const c=A.cfg.st.contact,rx=pciR(c,swingType);W3.pci.position.set(A.pci.x,A.pci.y,0.0);W3.pci.scale.set(rx,rx*0.8,1);
     // timing ring: starts wide at release and lands on the circle exactly when you should tap (the swing takes ~0.2 s)
     {const R=W3.tring;if(A.state==='pitch'&&!A.swing&&A.tR){const tTap=A.tCon-SWT*1000,tot=Math.max(1,tTap-A.tR),rem=tTap-now(),f=rem/tot,pw=timingWin(c,swingType)*1000*0.35;
         const sc=rx*(1+2.8*Math.max(f,-0.35));R.visible=f>-0.5;R.position.set(A.pci.x,A.pci.y,0.001);R.scale.set(sc,sc*0.8,1);
@@ -1811,7 +1834,7 @@ function loop(t){
   for(const r of G.runners)if(r.mesh.visible)r.update(dt,0,r._v||0);
   // ball shadow
   const bw=W3.ball.position;W3.bshadow.visible=W3.ball.visible;W3.bshadow.position.set(bw.x,0.02,bw.z);W3.bshadow.scale.setScalar(1/(1+bw.y*0.15));
-  ballSpin(dt);tracerTick();
+  ballSpin(dt);tracerTick();tgtTick();
   camera(dtr);crowdTick(dtr,t);fxTick(dt);fwTick(dtr*CLK.ts);shardTick(dt);flipTick(dt);
   // the catcher fades so you can see low pitches through him
   {const fade=A&&(A.state==='pitch'||A.state==='wind'||A.state==='ready')?0.3:1,m=G.catcher.mat;m.opacity+=(fade-m.opacity)*Math.min(1,dtr*8);const tr=m.opacity<0.99;
@@ -1823,7 +1846,8 @@ function camera(dt){
   if(window.__CAM){const c=window.__CAM;W3.cam.position.set(c[0],c[1],c[2]);W3.cam.lookAt(c[3],c[4],c[5]);return}
   let tp,tl,k=Math.min(1,dt*3);
   const follow=A&&A.B&&A.R&&A.R.code!=='FOUL'&&(A.state==='play'||A.state==='done'&&A.res&&!['K','BB','HBP'].includes(A.res.code));
-  if(A&&A.state==='replay'){const c=replayCam();tp=c[0];tl=c[1];k=Math.min(1,dt*((now()-A.tP)<500?20:3))}
+  if(A&&A.pitching&&!follow){const c=pitchCam();tp=c[0];tl=c[1];k=Math.min(1,dt*4)}
+  else if(A&&A.state==='replay'){const c=replayCam();tp=c[0];tl=c[1];k=Math.min(1,dt*((now()-A.tP)<500?20:3))}
   else if(follow&&A.cut&&now()<A.cut){const c=cutCam();tp=c[0];tl=c[1];k=1}
   else if(follow){
     const bp=W3.ball.position,B=A.B,far=Math.hypot(bp.x,bp.z);
@@ -1881,6 +1905,127 @@ function endMode(){if(!MD||!A)return;const b=bests(),m=MD.mode,best=b[m]||0,dk=m
   $('meBody').innerHTML='<p class="score-line num">'+MD.score+'</p><p class="muted">'+(m==='derby'?'home runs'+(MD.dist?' · '+MD.dist.toLocaleString()+' total feet':''):'points')+'</p>'+(isBest?'<p class="banner w">New personal best!</p>':'<p class="muted">Best: '+best+' · Today: '+Math.max(day,MD.score)+'</p>');
   $('meAgain').onclick=()=>{p.hidden=true;clearTargets();const s=MD;MD=null;startMode(s.mode,s.id,s.st,s.lv)};
   $('meQuit').onclick=()=>{p.hidden=true;clearTargets();MD=null;A=null;renderTitle()}}
+
+/* ================= the other side of the ball: pitching for two-way players, fielding moments, baserunning =================
+   Pitching (The Bigs style): pick a pitch, tap the zone to aim, then stop the sweeping meter in the green.
+   The batter decides whether to swing from the count and where the pitch is; balls in play go to your defence.
+   Fielding: when one of your fielders can just get there, a DIVE! / LEAP! button gives you the chance to make the play.
+   Baserunning: send a runner on the pitch (STEAL), or stretch a single into a double (GO FOR TWO). */
+const MY_PITCHES=st=>{const m=[['FF',50]];if(st.stuff>=30)m.push(['CH',20]);if(st.stuff>=38)m.push(['SL',22]);if(st.stuff>=50)m.push(['CB',16]);if(st.stuff>=62)m.push(['CT',12]);if(st.stuff>=72)m.push(['SP',10]);return m};
+function myVelo(st){return Math.round(70+st.velo*0.3)}
+function pitchOVR(st){return Math.round((st.velo+st.control+st.stuff)/3)}
+
+/* cfg: {lv, me:{st} (your pitching ratings), bat:{name,contact,power,eye,speed}, sit, teams, onDone} */
+function startPitchPA(cfg){
+  A={cfg,pitching:true,count:[0,0],pitches:0,state:'paim',pitch:null,ptSeen:[],practice:false,res:null};
+  A.cfg.st=cfg.bat;// the batter runs the bases in the play engine
+  resetPositions();placeRunners(cfg.sit?cfg.sit.bases:null);
+  A.ptype='FF';A.tgt={x:0.1,y:0.62};A.guess=null;renderGuess();
+  W3.mark.visible=false;W3.land.visible=false;W3.ball.visible=true;W3.pci.visible=false;W3.zone.visible=true;W3.tring.visible=false;
+  $('ab').classList.add('pitching');{const c=pitchCam();W3.camPos.copy(c[0]);W3.camLook.copy(c[1])}renderPitchBar();renderHUD();say('Pick a pitch, tap the zone to aim, then press Pitch.');
+}
+function renderPitchBar(){const st=A.cfg.me.st,mix=MY_PITCHES(st);
+  $('pitchBar').innerHTML=mix.map(([t])=>'<button data-p="'+t+'" aria-pressed="'+(A.ptype===t)+'" style="--pc:'+PT[t].c+'">'+PT[t].s+'</button>').join('');
+  $('pitchBar').querySelectorAll('button').forEach(b=>b.onclick=e=>{e.stopPropagation();A.ptype=b.dataset.p;renderPitchBar()})}
+/* the meter: a needle sweeps left to right; green is the sweet spot (wider with better control), the red end adds velocity and wildness */
+function startMeter(){if(A.state!=='paim')return;A.state='pmeter';A.mT0=now();const c=A.cfg.me.st.control;A.green=[0.68,0.68+0.06+c*0.0012];
+  $('pmeter').hidden=false;$('pmGreen').style.left=(A.green[0]*100)+'%';$('pmGreen').style.width=((A.green[1]-A.green[0])*100)+'%';say('Tap in the green!')}
+function stopMeter(){if(A.state!=='pmeter')return;const u=clamp((now()-A.mT0)/1000/0.95,0,1.02);$('pmeter').hidden=true;
+  const g=A.green,mid=(g[0]+g[1])/2,half=(g[1]-g[0])/2,miss=u>=g[0]&&u<=g[1]?Math.abs(u-mid)/half*0.3:u<g[0]?0.3+(g[0]-u)*2.2:u>0.93?1.0:0.3+(u-g[1])*3;
+  const st=A.cfg.me.st,P=PT[A.ptype],turbo=MET.armT;
+  let mph=myVelo(st)*P.v*(u<g[0]?0.97:1)+(u>0.93?2:0)+(turbo?5:0)+gauss()*0.6;
+  const sd=(0.035+(100-st.control)*0.0009)*(1+2.4*miss),k=(0.7+st.stuff*0.006)*(turbo?1.25:1);
+  A.pitch={type:A.ptype,tx:A.tgt.x+gauss()*sd,ty:A.tgt.y+gauss()*sd*0.9,mph,ax:P.ax*k,ay:P.ay*k,turbo,mine:true,quality:1-Math.min(1,miss)};
+  if(turbo){MET.armT=false;MET.turbo=Math.max(0,MET.turbo-100);renderMeters()}
+  say(miss<0.31?'Right on the money.':miss<0.8?'A little off.':'Yanked it!');
+  A.state='wind';A.tW=now();G.pitcher.pose=null;G.pitcher.startSwing('pt',0);A.tRel=A.tW+SWINGS.pt.dur*SWINGS.pt.cf*1000;A.tLoad=A.tRel-430;A.loaded=false;A.pitches++}
+/* the batter's decision and what happens if he swings */
+function cpuBatter(){const p=A.pitch,cp=pitchPos(p,pitchTimeAtZ(p,0)),inZ=inZone(cp.x,cp.y),b=A.cfg.bat,[balls,str]=A.count,st=A.cfg.me.st;
+  const out=Math.max(0,Math.max(Math.abs(cp.x)-ZONE.hw,ZONE.lo-cp.y,cp.y-ZONE.hi));
+  let sw=inZ?0.6+(str===2?0.2:0)+(balls===3?0.1:0):clamp(0.34-b.eye*0.0022+(str===2?0.14:0)-out*1.6,0.02,0.55);
+  if(Math.random()>=sw)return{swing:false,cp};
+  const pq=(st.stuff+st.velo+st.control)/3,brk=Math.hypot(p.ax,p.ay+0)/6,edge=inZ?Math.min(ZONE.hw-Math.abs(cp.x),cp.y-ZONE.lo,ZONE.hi-cp.y):-out;
+  const pc=clamp(0.8+(b.contact-pq)*0.006-(inZ?0:0.28+out)-brk*0.05-(p.mph-86)*0.007-(p.turbo?0.08:0)-(1-p.quality)*-0.06,0.2,0.95);
+  if(Math.random()>pc)return{swing:true,miss:true,cp};
+  if(Math.random()<(inZ?0.36:0.5))return{swing:true,foul:true,cp};
+  const mid=clamp(edge/0.12,-1,1);// middle-middle gets punished
+  const ev=clamp(87+(b.power-pq)*0.22+mid*5+gauss()*12,40,118),la=11+gauss()*24-(cp.y-0.76)*-18,spray=(-4+gauss()*24)*Math.PI/180;
+  return{swing:true,ev,la,spray,cp}}
+function stepPitch(dt){const t=now();
+  if(A.state==='pmeter'){const u=clamp((t-A.mT0)/1000/0.95,0,1.02);$('pmNeedle').style.left=(u*100)+'%';if(u>=1.02)stopMeter()}
+  if(A.state==='wind'){if(!A.loaded&&t>=A.tLoad){A.loaded=true;const b=G.batter;b.pose=null;b.startSwing('ld',0);b.swing.hold=true}
+    if(t>=A.tRel){const hw=G.pitcher.handWorld();makePitch(A.pitch,hw);A.state='pitch';A.tR=now();A.tCon=A.tR+pitchTimeAtZ(A.pitch,-0.28)*1000;A.tCatch=A.tR+pitchTimeAtZ(A.pitch,0.92)*1000;
+      A.dec=cpuBatter();if(A.dec.swing){A.swingAtT=A.tCon-SWT*1000+gauss()*25}
+      sndWhoosh();W3.ball.material.emissive.setHex(A.pitch.turbo?0xFF5A1F:0)}}
+  if(A.state==='pitch'){const p=A.pitch,tt=(t-A.tR)/1000;
+    if(A.dec.swing&&!A.cswung&&t>=A.swingAtT){A.cswung=true;const b=G.batter;b.pose=null;b.startSwing('sw',0,steerFor(A.dec.cp.x,A.dec.cp.y),1)}
+    if(A.dec.swing&&!A.dec.miss&&!A.dec.foul&&t>=A.tCon&&!A.judged){A.judged=true;const hp=pitchPos(p,pitchTimeAtZ(p,-0.28));W3.ball.position.copy(hp);
+      const c={ev:A.dec.ev,la:A.dec.la,spray:A.dec.spray,bx:A.dec.cp.x,by:A.dec.cp.y,q:0.5,kind:'play'};A.contact=c;inPlay(c);return}
+    if(A.dec.foul&&t>=A.tCon&&!A.judged){A.judged=true;sndBat(0.25,0.1);const B=simBall(55+Math.random()*25,rnd(-10,70),(Math.random()<0.5?-1:1)*rnd(50,80)*Math.PI/180,PARK,{x0:0,y0:A.dec.cp.y,z0:-0.3});A.B=B;A.R={code:'FOUL'};A.state='play';A.tP=now();planPlay(B,A.R);return}
+    W3.ball.position.copy(pitchPos(p,Math.min(tt,(A.tCatch-A.tR)/1000)));catcherTrack(p);
+    if(t>=A.tCatch){sndGlove(p.mph/95);drawTracer(p);const cp=A.dec.cp,strike=A.dec.swing||inZone(cp.x+gauss()*0.008,cp.y+gauss()*0.008);showMark(cp,strike?0xF28A78:0x74D493);
+      if(strike){A.count[1]++;gainTurbo(A.dec.swing?25:20);if(A.count[1]>=3){umpire('Strike three!');gainTurbo(40);endPA({code:'K'});return}umpire('Strike!');say((A.dec.swing?'Swing and a miss':'Called strike')+' · '+Math.round(p.mph)+' mph '+PT[p.type].s)}
+      else{A.count[0]++;if(A.count[0]>=4){umpire('Ball four.');endPA({code:'BB'});return}say('Ball · '+locWord(cp.x,cp.y))}
+      renderHUD();nextPitchAim()}}
+  if(A.state==='play'){if(tickPlay(dt)){if(A.R.code==='FOUL'){if(A.count[1]<2)A.count[1]++;showCall('Foul',false,'');renderHUD();cleanupPlay();W3.pci.visible=false;nextPitchAim()}else finishPlay()}}
+  if(A.state==='done'&&now()-A.tDone>1600&&!A.handed){A.handed=true;$('ab').classList.remove('pitching');const cb=A.cfg.onDone;cb&&cb(A.res)}}
+function nextPitchAim(){A.state='paim';A.pitch=null;A.dec=null;A.cswung=false;A.judged=false;A.B=null;A.R=null;A.script=null;
+  const b=G.batter;if(!(b.swing&&b.swing.type==='sw')){b.swing=null;b.post=null}b.pose='stance';b.pos.set(BATTER_X,0,0.05);b.yaw=Math.PI/2;if(b.bat)b.bat.visible=true;
+  const p=G.pitcher;p.swing=null;p.post=null;p.pose='pt';p.poseU=0;p.pos.set(0,0.25,-RUBBER+0.25);p.yaw=0;
+  const c=G.catcher;c.pos.set(0,0,1.05);c.pose='cr';c.swing=null;W3.ball.visible=true;FX.tp=[]}
+function aimTap(e){if(!A||!A.pitching)return false;if(A.state==='pmeter'){stopMeter();return true}if(A.state!=='paim')return false;
+  const p=screenToZone(e.clientX,e.clientY);if(!p)return true;A.tgt={x:clamp(p.x,-0.5,0.5),y:clamp(p.y,0.2,1.35)};return true}
+/* the pitching camera: behind the mound, looking in at the plate */
+function pitchCam(){const port=W3.cam.aspect<1;return[new T.Vector3(0.7,port?3.1:2.6,-RUBBER-(port?6.2:5.0)),new T.Vector3(0,port?-3.2:-1.2,0)]}
+function tgtTick(){if(!W3.tgt){const g=new T.Group(),m=new T.MeshBasicMaterial({color:0xFF5A8A,transparent:true,opacity:0.95,depthTest:false,side:T.DoubleSide});
+    g.add(new T.Mesh(new T.RingGeometry(0.05,0.065,32),m));const h=new T.Mesh(new T.PlaneGeometry(0.18,0.012),m),v=new T.Mesh(new T.PlaneGeometry(0.012,0.18),m);g.add(h);g.add(v);g.children.forEach(c=>c.renderOrder=9);W3.tgt=g;W3.scene.add(g)}
+  const on=A&&A.pitching&&(A.state==='paim'||A.state==='pmeter');W3.tgt.visible=on;if(on){W3.tgt.position.set(A.tgt.x,A.tgt.y,0.003);W3.tgt.lookAt(W3.cam.position);W3.tgt.scale.setScalar(2.2)}}
+
+/* ---- fielding moments (your defence only): a near miss becomes a chance ---- */
+function qteSetup(R){if(!A||!A.pitching||R.out||R.code==='FOUL')return null;
+  if(R.robAt)return{kind:'leap',at:R.robAt,label:'LEAP!'};if(R.diveAt)return{kind:'dive',at:R.diveAt,label:'DIVE!'};
+  if(R.gDiveAt&&!R.out)return{kind:'gdive',at:R.gDiveAt,label:'DIVE!'};return null}
+function qteTick(t){const Q=A.qte;if(!Q||Q.done)return;const tq=Q.at.t,b=$('qte');
+  if(t>=tq-0.75&&t<tq+0.12){if(b.hidden){b.hidden=false;b.textContent=Q.label;slowMo(true,0.4);sndCrowd(0.3)}}
+  else if(t>=tq+0.12&&!Q.done){Q.done=true;b.hidden=true;slowMo(false)}}
+function qteTap(){const Q=A&&A.qte;if(!Q||Q.done)return false;const t=(now()-A.tP)/1000,tq=Q.at.t;if(t<tq-0.75)return false;Q.done=true;$('qte').hidden=true;slowMo(false);
+  if(t<tq-0.45){say('Too early!');return true}
+  // the play is made: rebuild the result as an out
+  const sit=A.cfg.sit,ctx={outs:sit.outs,bases:sit.bases,spd:A.cfg.st.speed,err:0,arm:30},a=Q.at,i=a.i;let R2;
+  if(Q.kind==='gdive'){R2={code:'GO',out:1,fielder:i,t:tq,catchAt:[a.x,0.2,a.z],throws:[{from:[a.x,1.2,a.z],to:[B1[0],1.2,B1[1]],t0:tq+0.85,t1:tq+0.85+dist2([a.x,a.z],B1)/31}],dive:true,runs:0,rbi:0,bases:[null,null,null],runnerMoves:[],desc:'grounds out on a diving stop by the '+FNAME[i]};R2=advanceOnGround(R2,ctx,sit.bases.slice(),1,false)}
+  else{R2={code:Q.kind==='leap'?'FO':(A.B.la<14?'LO':'FO'),out:1,fielder:i,t:tq,catchAt:[a.x,a.y,a.z],air:true,dive:Q.kind==='dive',robbed:Q.kind==='leap',runs:0,rbi:0,runnerMoves:[],desc:Q.kind==='leap'?'is robbed at the wall by the '+FNAME[i]:'lines out on a diving catch by the '+FNAME[i]};R2=finishOut(R2,ctx,A.B)}
+  if(Q.kind==='leap'){A.B=Object.assign({},A.B,{hr:false})}
+  A.R=R2;const tP=A.tP;planPlay(A.B,R2);A.tP=tP;cheer(1);sndCrowd(1.1);showCall(Q.kind==='leap'?'Robbed!':Q.kind==='gdive'?'Diving stop!':'Diving catch!',false,'w');return true}
+
+/* ---- baserunning while you bat: steal, and stretching a single ---- */
+function stealable(){const s=A&&A.cfg.sit;if(!s||A.pitching||A.practice||A.cfg.mode)return-1;const b=s.bases;if(b[1]!=null&&b[2]==null)return 1;if(b[0]!=null&&b[1]==null)return 0;return-1}
+function renderRunBtns(){const st=$('stealBtn');if(!st)return;const k=A&&A.state==='ready'&&!A.steal?stealable():-1;st.hidden=k<0;if(k>=0)st.textContent='Steal '+['2nd','3rd'][k]}
+function armSteal(){const k=stealable();if(k<0||!A||A.state!=='ready')return;A.steal={k,spd:A.cfg.sit.bases[k]};$('stealBtn').hidden=true;say('The runner goes on the pitch!')}
+function stealTick(){const S=A.steal;if(!S||S.over)return;const t=now();const r=G.runners[S.k];if(!r)return;
+  if(A.state==='wind'&&t>=A.tRel-250&&!S.t0)S.t0=t;if(!S.t0)return;
+  const v=runV(S.spd),d=Math.min(runDist((t-S.t0)/1000,v,6.5),BASE_L-2.4),a=BASES[S.k+1],n=BASES[S.k+2],dir=n.clone().sub(a).normalize();
+  r.pos.copy(a).addScaledVector(dir,(S.k===1?1.5:2.6)+d);r.pos.y=0;r.yaw=Math.atan2(dir.x,dir.z);r._v=v;r.pose=null}
+/* the throw down after the pitch is caught: runner time against pop time plus the throw */
+function stealResolve(){const S=A.steal;if(!S||S.over)return false;S.over=true;
+  const p=A.pitch,tRun=runTime(BASE_L-2.4,runV(S.spd),6.5)+0.25,tCatchFromJump=(A.tCatch-S.t0)/1000,tThrow=tCatchFromJump+0.75+dist2([0,1],BASEXZ[S.k+2])/36+(p&&PT[p.type].v<0.9?0.08:0);
+  const safe=tRun+gauss()*0.12<tThrow,sit=A.cfg.sit;
+  W3.ball.visible=true;A.stealAnim={t0:now(),to:BASES[S.k+2].clone().setY(1.2),safe};
+  if(safe){sit.bases[S.k+1]=S.spd;sit.bases[S.k]=null;showCall('Stolen base!',false,'w');sndCrowd(0.6)}
+  else{sit.bases[S.k]=null;sit.outs++;showCall('Caught stealing',false,'l');sndCrowd(0.3)}
+  const r=G.runners[S.k];if(r)r.mesh.visible=safe;placeRunners(sit.bases);renderHUD();
+  if(!safe&&sit.outs>=3){A.res={code:'CS',noPA:true,out:0,csOut:true,bases:[null,null,null],runs:0,rbi:0,desc:'',endInning:true};A.state='done';A.tDone=now();A.ended=true;return true}
+  A.steal=null;return false}
+/* a single to the outfield: offer to stretch it */
+function stretchSetup(R){if(!A||A.pitching||A.practice||R.code!=='1B'||R.infield||!R.catchAt)return null;if(R.bases&&R.bases[1]!=null)return null;return{t:R.t}}
+function stretchTick(t){const S=A.stretch;if(!S||S.done)return;const b=$('qte');if(t>=S.t-0.5&&t<S.t+0.6){if(b.hidden){b.hidden=false;b.textContent='GO FOR TWO'}}else if(t>=S.t+0.6){S.done=true;b.hidden=true}}
+function stretchTap(){const S=A&&A.stretch;if(!S||S.done)return false;S.done=true;$('qte').hidden=true;const R=A.R,spd=A.cfg.st.speed,v=runV(spd);
+  const tRun=toFirst(spd)+runTime(BASE_L,v,7)*0.93+0.12,tThr=R.t+0.6+dist2([R.catchAt[0],R.catchAt[2]],B2)/(A.cfg.arm||30)+gauss()*0.15;
+  const safe=tRun<tThr;R.batterTo=2;
+  if(safe){R.code='2B';R.hit=2;R.desc='stretches it into a double';R.bases[1]=spd;R.bases[0]=null;showCall('Safe at second!',false,'w')}
+  else{R.out=1;R.desc='singles but is thrown out trying for two';R.bases[0]=null;R.stretchOut=true;showCall('Out at second!',false,'l')}
+  const r=A.script.runners.find(x=>x.who==='b');if(r){r.to=2;r.out=!safe;r.T=r.t0+runTime(BASE_L*2,r.v,6.5)+0.25}
+  A.script.throws=[{from:[R.catchAt[0],1.4,R.catchAt[2]],to:[B2[0],1.3,B2[1]],t0:R.t+0.6,t1:R.t+0.6+dist2([R.catchAt[0],R.catchAt[2]],B2)/(A.cfg.arm||30)}];
+  A.script.end=Math.max(A.script.end,(r?r.T:0)+0.4);return true}
 
 /* ================= games: the innings around your at-bats =================
    Every other plate appearance is simulated with the same ball physics and defence as your live ones:
@@ -1940,7 +2085,10 @@ async function playGame(cfg){
   const st=cfg.me.st,mine={contact:st.contact,power:st.power,eye:st.eye,speed:st.speed};
   const oppP=cfg.oppPitcher||makePitcher(cfg.lv,cfg.opp.team.pit,null);
   const myP={ovr:cfg.my.team.pit,control:cfg.my.team.pit,stuff:cfg.my.team.pit};
-  const g={score:[0,0],line:[[],[]],hits:[0,0],log:[],me:emptyLine(),spot:[0,0],inning:1,half:'top',over:false,myIdx,teams,oppP,lv:cfg.lv,innings:inn};
+  const g={score:[0,0],line:[[],[]],hits:[0,0],log:[],me:emptyLine(),spot:[0,0],inning:1,half:'top',over:false,myIdx,teams,oppP,lv:cfg.lv,innings:inn,pit:null};
+  // a two-way player's start: you pitch the first few innings (your pitching ratings), the bullpen finishes
+  const ps=cfg.me.pst,myStart=!!(cfg.myStart&&ps),pitInn=cfg.lv==='hs'?5:6,meP=myStart?{ovr:Math.round((ps.velo+ps.control+ps.stuff)/3),control:ps.control,stuff:ps.stuff}:null;
+  if(myStart)g.pit={outs:0,h:0,r:0,bb:0,k:0,bf:0,hr:0};let livePit=0;
   // the order: nine hitters; yours is at meSpot (1-based); teammates and opponents vary around the team's level
   const order=t=>{const base=t.off;return Array.from({length:9},(_,i)=>{const q=base+(i<5?4-i:-(i-4)*2)+rnd(-4,4);return{contact:q,power:q+rnd(-8,8),eye:q+rnd(-6,6),speed:clamp(q+rnd(-15,15),20,95)}})};
   const lineups=[order(teams[0]),order(teams[1])];
@@ -1953,7 +2101,7 @@ async function playGame(cfg){
       let outs=0,bases=[null,null,null],runs=0,meOn=-1;
       g.log.push({h:true,t:(half==='top'?'Top ':'Bottom ')+ord(i)});
       while(outs<3){
-        const k=g.spot[bat]%9,isMe=bat===myIdx&&k===meSpot-1,b=isMe?mine:lineups[bat][k],pit=bat===myIdx?{ovr:oppP.ovr,control:oppP.control,stuff:oppP.stuff}:myP;
+        const k=g.spot[bat]%9,isMe=bat===myIdx&&k===meSpot-1,b=isMe?mine:lineups[bat][k],mePitching=myStart&&bat!==myIdx&&i<=pitInn,pit=bat===myIdx?{ovr:oppP.ovr,control:oppP.control,stuff:oppP.stuff}:mePitching?meP:myP;
         let res;
         const sit={inning:i,half,outs,bases:bases.slice(),score:g.score.slice()};
         // key moments: only the at-bats that matter are played live (the rest are simulated with your ratings)
@@ -1962,10 +2110,18 @@ async function playGame(cfg){
           const key=(late&&close)||(risp&&close&&i>=3)||(i>=inn&&diff<=0)||(liveCount===0&&i>=Math.ceil(inn/2));
           live=key&&liveCount<4;
           if(live)head=(diff<0?'Down '+(-diff):diff>0?'Up '+diff:'Tied')+', '+(runnersText2(bases)||'bases empty')+', '+(half==='top'?'top':'bottom')+' of the '+ord(i)+(late&&close?'. Big spot!':'.')}
-        if(live){liveCount++;res=await cfg.live({sit,g,ab:liveCount,pitcher:oppP,teams:teams.map(t=>t.short),head})}
+        // pitching key moments: the first batter you face, jams, and late close spots
+        let pLive=false;if(mePitching&&cfg.livePitch){const diff=g.score[myIdx]-g.score[1-myIdx],risp=bases[1]!=null||bases[2]!=null;
+          pLive=livePit<6&&((i===1&&outs<2&&livePit<2)||(risp&&Math.abs(diff)<=3)||(i>=pitInn-1&&Math.abs(diff)<=2&&outs===2));
+          if(pLive)head='You’re on the mound: '+(risp?'jam, '+runnersText2(bases)+', ':'')+outs+' out'+(outs===1?'':'s')+', '+(half==='top'?'top':'bottom')+' of the '+ord(i)+'.'}
+        if(pLive){livePit++;res=await cfg.livePitch({sit,g,bat:Object.assign({name:teams[bat].short+' #'+(k+1)},b),teams:teams.map(t=>t.short),head})}
+        else if(live){liveCount++;res=await cfg.live({sit,g,ab:liveCount,pitcher:oppP,teams:teams.map(t=>t.short),head})}
         else if(isMe&&cfg.live)res=simPA(mine,pit,sit,opts)
         else res=simPA(b,pit,sit,opts);
         if(res.quit){g.quit=true;return g}
+        if(res.csOuts)outs+=res.csOuts;
+        if(res.noPA){if(res.endInning){outs=3;bases=[null,null,null]}g.log.push({t:'Runner caught stealing to end the inning',s:g.score.slice()});continue}
+        if(mePitching&&g.pit){const P=g.pit;P.bf++;P.outs+=res.out||0;P.r+=res.runs||0;if(['1B','2B','3B','HR'].includes(res.code))P.h++;if(res.code==='HR')P.hr++;if(res.code==='BB'||res.code==='HBP')P.bb++;if(res.code==='K')P.k++}
         // where did you go if you were on base?
         if(meOn>=0&&!isMe){const mv=(res.runnerMoves||[]).find(m=>m.from===meOn+1);if(mv){if(mv.to>=4){g.me.r++;meOn=-1}else meOn=mv.to-1}else if(res.bases&&res.bases[meOn]==null)meOn=-1}
         if(isMe){lineAdd(g.me,res);meOn=-1;if(res.code==='HR')g.me.r++;else{const q={'1B':0,'2B':1,'3B':2,BB:0,HBP:0,E:0,FC:0}[res.code];if(q!=null)meOn=q}}
@@ -2118,9 +2274,10 @@ function myTeamFor(lv){if(lv==='hs')return makeTeam(save.school,save.school.slic
   const o=save.org;if(lv==='mlb')return makeTeam(o.city+' '+o.name,abbr(o.city),'mlb',o.hue,2);
   return makeTeam(o.name+' '+AFFIL[lv],abbr(o.city),lv,o.hue,1)}
 function newSeason(){
-  const lv=save.level;save.team=myTeamFor(lv);save.opps=teamsFor(lv);save.seasonLine=emptyLine();save.gi=0;save.recent=[];save.post=null;save.wl=[0,0];
+  const lv=save.level;save.team=myTeamFor(lv);save.opps=teamsFor(lv);save.seasonLine=emptyLine();save.pitSeason={};save.gi=0;save.recent=[];save.post=null;save.wl=[0,0];
   const n=GAMES[lv];save.games=[];for(let i=0;i<n;i++)save.games.push({o:i%save.opps.length,home:i%2===0,res:null});
   save.games.sort(()=>Math.random()-0.5);save.lvlStart=save.level;save.allStar=false;
+  if(save.twoWay)save.games.forEach((g,i)=>{if(i%4===1)g.start=true});
   if(save.rivals){const k=Math.max(2,Math.round(n/6));for(let j=0;j<k;j++){const gi=Math.min(n-1,Math.round((j+0.6)*n/k));save.games[gi].rv=j%3}save.games[n-1].rv=save.games[n-1].rv!=null?save.games[n-1].rv:Math.floor(Math.random()*3)}}
 function promote(to,midSeason){const from=save.level;save.level=to;
   const done=save.games.slice(0,save.gi).filter(g=>g.res);save.byLevel[from]=addLine(save.byLevel[from]||emptyLine(),{});
@@ -2143,6 +2300,7 @@ function renderHub(){
   $('nextCard').innerHTML='<p class="eyebrow">Game '+(save.gi+1)+' of '+save.games.length+(save.post?' · '+esc(save.post.name):'')+'</p><h3 style="font-size:26px">'+(G0.home?'vs ':'at ')+esc(opp.name)+'</h3>'+
     '<div class="row"><span class="chip"><span class="dot" style="background:#'+new T.Color(opp.color).getHexString()+'"></span>'+esc(opp.short)+'</span><span class="chip">'+LEVELS[save.level].inn+' innings</span><span class="chip">'+PARKS[LEVELS[save.level].park].name+'</span><span class="chip">Batting '+ord(LEVELS[save.level].spot)+'</span></div>'+
     (G0.rv!=null&&save.rivals?(rv=>'<div class="opp"><p class="eyebrow">Rival on the mound · '+RIVAL_TYPES[rv.type].t+'</p><p style="font-weight:600;font-size:18px">'+esc(rv.name)+'</p><p class="quote">“'+esc(pick(RIVAL_TYPES[rv.type].lines))+'”</p><p class="muted" style="font-size:13px">Head-to-head: '+h2h(rv)+'</p></div>')(save.rivals[G0.rv]):'')+
+    (G0.start&&save.twoWay?'<p class="note"><b>You’re starting on the mound tonight.</b> You’ll pitch the big spots in the first innings, and still bat.</p>':'')+
     '<label class="toggle" style="padding:8px 10px"><input type="checkbox" id="keyOnly" '+(save.keyOnly!==false?'checked':'')+'><span><b>Key moments only.</b> Play the at-bats that matter (up to 4); the rest are simmed with your ratings.</span></label>'+
     (save.recent.length?'<p class="muted" style="font-size:14px">Last games: '+save.recent.slice(-5).map(x=>'<b class="'+(x.w?'tw':'tl')+'">'+(x.w?'W':'L')+'</b> '+x.s).join(' · ')+'</p>':'')+
     '<div class="row"><button class="go" id="btnPlay" style="flex:1">Play game</button><button class="ghost" id="btnSim">Sim game</button>'+(left>1?'<button class="ghost" id="btnSim5">Sim '+Math.min(5,left)+'</button>':'')+'</div>';
@@ -2153,9 +2311,9 @@ function renderHub(){
   // training
   const pts=save.xp;
   $('trainCard').innerHTML='<div class="row between"><h3>Training</h3><span class="chip num">'+pts+' training pts</span></div>'+
-    [...BAT,...GLOVE].map(([k,l,d])=>{const v=save.st[k],c=trainCost(v);return'<div class="stat"><span title="'+esc(d)+'">'+l+'</span><div class="bar"><i style="width:'+v+'%"></i></div><b class="num sv">'+v+'</b><button data-k="'+k+'" '+(v>=99||pts<c?'disabled':'')+'>+1 · '+c+'</button></div>'}).join('')+
+    [...BAT,...GLOVE,...(save.twoWay?PITCH:[])].map(([k,l,d])=>{const v=save.st[k],c=trainCost(v);return'<div class="stat"><span title="'+esc(d)+'">'+l+'</span><div class="bar"><i style="width:'+v+'%"></i></div><b class="num sv">'+v+'</b><button data-k="'+k+'" '+(v>=99||pts<c?'disabled':'')+'>+1 · '+c+'</button></div>'}).join('')+
     '<p class="muted" style="font-size:13px">Contact grows your swing zone, Power your exit velocity, Eye how soon you read the pitch. Fielding and Arm are simulated for now.</p>'+
-    (save.twoWay?'<div class="note"><b>Two-way:</b> pitching arrives in a later update. Your arm is on the roster: Velocity '+save.st.velo+' · Control '+save.st.control+' · Stuff '+save.st.stuff+'.</div>':'')+
+    (save.twoWay?'<div class="note"><b>Two-way:</b> you start every fourth game on the mound ('+myVelo(save.st)+' mph fastball, '+MY_PITCHES(save.st).map(m=>PT[m[0]].s).join(', ')+'). Train Velocity, Control and Stuff above; more Stuff unlocks more pitches.'+(save.pitSeason&&save.pitSeason.outs?' This season: '+ipStr(save.pitSeason.outs)+' IP, '+eraOf(save.pitSeason).toFixed(2)+' ERA, '+save.pitSeason.k+' K.':'')+'</div>':'')+
     (save.level!=='hs'&&save.level!=='college'?'<h3 style="margin-top:4px">Off-season camps</h3><p class="muted" style="font-size:13px;margin-top:-6px">Spend salary and bonus money on extra training. Bank: '+money(save.money)+'</p>'+CAMPS.map((c,i)=>'<div class="row between"><span>'+c.n+' <span class="muted">+'+c.xp+' pts</span></span><button data-camp="'+i+'" '+(save.money<c.cost?'disabled':'')+'>'+money(c.cost)+'</button></div>').join(''):'');
   $('trainCard').querySelectorAll('button[data-k]').forEach(b=>b.onclick=()=>{const k=b.dataset.k,c=trainCost(save.st[k]);if(save.xp>=c&&save.st[k]<99){save.xp-=c;save.st[k]++;store();renderHub()}});
   $('trainCard').querySelectorAll('button[data-camp]').forEach(b=>b.onclick=()=>{const c=CAMPS[+b.dataset.camp];if(save.money>=c.cost){save.money-=c.cost;save.xp+=c.xp;store();renderHub()}});
@@ -2176,11 +2334,11 @@ function statTable(rows){return'<table class="ftab"><tr><th></th><th>G</th><th>A
 /* ================= playing and simulating games ================= */
 function gameCfg(){const g=save.games[save.gi],opp=save.opps[g.o],lv=save.level,rv=g.rv!=null&&save.rivals?save.rivals[g.rv]:null;
   const pitChar=rv?rv.id:pick(ROSTER.filter(r=>r.id!==save.char)).id;
-  return{lv,home:g.home,opp:{team:opp},my:{team:save.team},me:{name:RBYID[save.char].name,id:save.char,st:save.st},pitChar,rival:rv,keyOnly:save.keyOnly!==false,
+  return{lv,home:g.home,opp:{team:opp},my:{team:save.team},me:{name:RBYID[save.char].name,id:save.char,st:save.st,pst:save.twoWay?save.st:null},myStart:!!(save.twoWay&&g.start),oppBatChar:pick(ROSTER.filter(r=>r.id!==save.char&&(!rv||r.id!==rv.id))).id,pitChar,rival:rv,keyOnly:save.keyOnly!==false,
     oppPitcher:rv?rivalPitcher(rv,lv,opp.pit):makePitcher(lv,opp.pit,pitChar)}}
 async function playCareerGame(live){
   const cfg=gameCfg();
-  if(live){await enterPark(cfg);cfg.live=liveAB(cfg)}
+  if(live){await enterPark(cfg);cfg.live=liveAB(cfg);if(cfg.myStart)cfg.livePitch=livePitch(cfg)}
   PARK=PARKS[LEVELS[cfg.lv].park];
   const g=await playGame(cfg);
   ABQ.quit=null;if(g.quit){renderHub();return}
@@ -2192,12 +2350,14 @@ function runSync(cfg){// synchronous copy of playGame's loop for simulated games
   const L=LEVELS[cfg.lv],inn=L.inn,meSpot=L.spot,teams=cfg.home?[cfg.opp.team,cfg.my.team]:[cfg.my.team,cfg.opp.team],myIdx=cfg.home?1:0;
   const st=cfg.me.st,mine={contact:st.contact,power:st.power,eye:st.eye,speed:st.speed},oppP=cfg.oppPitcher,myP={ovr:cfg.my.team.pit,control:cfg.my.team.pit,stuff:cfg.my.team.pit};
   const g={score:[0,0],line:[[],[]],hits:[0,0],log:[],me:emptyLine(),spot:[0,0],myIdx,teams,oppP,innings:inn};
+  const ps=cfg.me.pst,myStart=!!(cfg.myStart&&ps),pitInn=cfg.lv==='hs'?5:6,meP=myStart?{ovr:Math.round((ps.velo+ps.control+ps.stuff)/3),control:ps.control,stuff:ps.stuff}:null;if(myStart)g.pit={outs:0,h:0,r:0,bb:0,k:0,bf:0,hr:0};
   const order=t=>Array.from({length:9},(_,i)=>{const q=t.off+(i<5?4-i:-(i-4)*2)+rnd(-4,4);return{contact:q,power:q+rnd(-8,8),eye:q+rnd(-6,6),speed:clamp(q+rnd(-15,15),20,95)}});
   const lineups=[order(teams[0]),order(teams[1])],opts={err:L.err,arm:L.arm};let over=false;
   for(let i=1;i<inn+7&&!over;i++)for(const half of['top','bottom']){const bat=half==='top'?0:1;if(half==='bottom'&&i>=inn&&g.score[1]>g.score[0]){over=true;break}
     let outs=0,bases=[null,null,null],runs=0,meOn=-1;
-    while(outs<3){const k=g.spot[bat]%9,isMe=bat===myIdx&&k===meSpot-1,b=isMe?mine:lineups[bat][k],pit=bat===myIdx?oppP:myP;
+    while(outs<3){const k=g.spot[bat]%9,isMe=bat===myIdx&&k===meSpot-1,b=isMe?mine:lineups[bat][k],mp=myStart&&bat!==myIdx&&i<=pitInn,pit=bat===myIdx?oppP:mp?meP:myP;
       const res=simPA(b,pit,{outs,bases},opts);
+      if(mp){const P=g.pit;P.bf++;P.outs+=res.out||0;P.r+=res.runs||0;if(['1B','2B','3B','HR'].includes(res.code))P.h++;if(res.code==='HR')P.hr++;if(res.code==='BB'||res.code==='HBP')P.bb++;if(res.code==='K')P.k++}
       if(meOn>=0&&!isMe){const mv=(res.runnerMoves||[]).find(m=>m.from===meOn+1);if(mv){if(mv.to>=4){g.me.r++;meOn=-1}else meOn=mv.to-1}else if(res.bases&&res.bases[meOn]==null)meOn=-1}
       if(isMe){lineAdd(g.me,res);meOn=-1;if(res.code==='HR')g.me.r++;else{const q={'1B':0,'2B':1,'3B':2,BB:0,HBP:0,E:0,FC:0}[res.code];if(q!=null)meOn=q}}
       outs+=res.out||0;runs+=res.runs||0;g.score[bat]+=res.runs||0;if(['1B','2B','3B','HR'].includes(res.code))g.hits[bat]++;bases=outs>=3?[null,null,null]:(res.bases||bases);if(outs>=3)meOn=-1;g.spot[bat]++;
@@ -2212,6 +2372,8 @@ function afterGame(g,live,cfg,quiet){
   addLine(save.seasonLine,me);addLine(save.career,me);save.byLevel[save.level]=addLine(save.byLevel[save.level]||emptyLine(),me);
   save.wl[g.won?0:1]++;save.recent.push({w:g.won,s});save.gi++;
   let xp=xpFor(me,g.won,live);
+  if(g.pit){const P=g.pit;P.g=1;save.pitSeason=addLine(save.pitSeason||{},P);save.pitCareer=addLine(save.pitCareer||{},P);xp+=Math.round((P.outs+P.k*2+(g.won&&P.outs>=15?8:0))*(live?1:0.6));
+    g.pitNote='On the mound: '+ipStr(P.outs)+' IP, '+P.h+' H, '+P.r+' R, '+P.bb+' BB, '+P.k+' K'}
   if(cfg.rival){const rv=cfg.rival;rv.ab+=me.ab;rv.h+=me.h;rv.hr+=me.hr;rv.k+=me.k;rv.bb+=me.bb;g.rivalNote=me.hr?'You took '+rv.name+' deep! Head-to-head: '+h2h(rv)+'.':me.h?'You got to '+rv.name+'. Head-to-head: '+h2h(rv)+'.':rv.name+' got the better of you. Head-to-head: '+h2h(rv)+'.';if(me.h)xp+=8+me.hr*10}
   save.xp+=xp;
   const pay=MONEY[save.level]/GAMES[save.level]*(save.level==='mlb'?salaryMult():1);if(pay){save.money+=pay;save.earnings+=pay}
@@ -2219,7 +2381,7 @@ function afterGame(g,live,cfg,quiet){
   const promo=checkPromotion();
   store();
   if(quiet){if(promo)save.flash=promo;return}
-  if(g.rivalNote)notes.unshift(g.rivalNote);
+  if(g.rivalNote)notes.unshift(g.rivalNote);if(g.pitNote)notes.unshift(g.pitNote);
   showGameResult(g,xp,notes,promo,cfg)}
 function salaryMult(){const s=save.mlbSeasons;const r=rate(save.byLevel.mlb||emptyLine());return(1+s*0.6)*(1+Math.max(0,r.ops-0.72)*4)}
 function checkMilestones(me){const n=[],c=save.career,M=save.milestones;
@@ -2243,17 +2405,29 @@ function showGameResult(g,xp,notes,promo,cfg){
   $('resNext').onclick=()=>renderHub();show('result')}
 
 /* ---- live at-bats inside a game ---- */
-async function enterPark(cfg){
+async function enterPark(cfg,role,keep){
   const fl=LIGHT.filter(x=>x!==cfg.me.id&&x!==cfg.pitChar);
-  await setupScene({park:LEVELS[cfg.lv].park,batterId:cfg.me.id,pitcherId:cfg.pitChar,fielderIds:[fl[0],fl[1]],runnerId:fl[2]||fl[0],homeColor:(cfg.home?cfg.my.team:cfg.opp.team).color,defHue:cfg.opp.team.hue,myHue:cfg.my.team.hue});
+  if(role==='pitch')await setupScene({role:'pitch',keepMeters:keep,park:LEVELS[cfg.lv].park,batterId:cfg.oppBatChar||fl[3]||fl[0],pitcherId:cfg.me.id,fielderIds:[fl[0],fl[1]],runnerId:fl[2]||fl[0],homeColor:(cfg.home?cfg.my.team:cfg.opp.team).color,defHue:cfg.my.team.hue,myHue:cfg.opp.team.hue});
+  else await setupScene({role:'bat',keepMeters:keep,park:LEVELS[cfg.lv].park,batterId:cfg.me.id,pitcherId:cfg.pitChar,fielderIds:[fl[0],fl[1]],runnerId:fl[2]||fl[0],homeColor:(cfg.home?cfg.my.team:cfg.opp.team).color,defHue:cfg.opp.team.hue,myHue:cfg.my.team.hue});
   sndResume();}
+/* live pitching: same flow as a live at-bat, from the mound */
+function livePitch(cfg){let lastLog=0;
+  return(ctx)=>new Promise(res=>{
+    const g=ctx.g,news=g.log.slice(lastLog);lastLog=g.log.length;
+    const simMe=()=>{const ps=cfg.me.pst;return simPA(ctx.bat,{ovr:Math.round((ps.velo+ps.control+ps.stuff)/3),control:ps.control,stuff:ps.stuff},ctx.sit,{err:LEVELS[cfg.lv].err,arm:LEVELS[cfg.lv].arm})};
+    if(g.simRest){res(simMe());return}
+    ABQ.quit=()=>{A=null;$('between').hidden=true;res({quit:true})};
+    const go=async()=>{$('between').hidden=true;if(!G||G.role!=='pitch')await enterPark(cfg,'pitch',true);
+      g.pitches=g.pitches||0;startPitchPA({lv:cfg.lv,me:{st:cfg.me.pst},bat:ctx.bat,sit:ctx.sit,teams:ctx.teams,errRate:LEVELS[cfg.lv].err*0.6,arm:LEVELS[cfg.lv].arm,pitchCount:g.pitches,
+        onDone:r=>{g.pitches+=A?A.pitches:0;lastLog=g.log.length+1;res(r)}})};
+    betweenPanel(g,news,Object.assign({},ctx,{pitcher:{name:'You',velo:myVelo(cfg.me.pst),mix:MY_PITCHES(cfg.me.pst)}}),go,()=>{$('between').hidden=true;g.simRest=true;res(simMe())})});}
 function liveAB(cfg){let lastLog=0;
   return(ctx)=>new Promise(res=>{
     const g=ctx.g,news=g.log.slice(lastLog);lastLog=g.log.length;
     const simMe=()=>{const st=cfg.me.st;return simPA({contact:st.contact,power:st.power,eye:st.eye,speed:st.speed},ctx.pitcher,ctx.sit,{err:LEVELS[cfg.lv].err,arm:LEVELS[cfg.lv].arm})};
     if(g.simRest){res(simMe());return}
     ABQ.quit=()=>{A=null;$('between').hidden=true;res({quit:true})};
-    const go=()=>{$('between').hidden=true;
+    const go=async()=>{$('between').hidden=true;if(G&&G.role==='pitch')await enterPark(cfg,'bat',true);
       startPA({lv:cfg.lv,st:cfg.me.st,pitcher:ctx.pitcher,sit:ctx.sit,teams:ctx.teams,ab:ctx.ab,errRate:LEVELS[cfg.lv].err,arm:LEVELS[cfg.lv].arm,
         intro:'At-bat '+ctx.ab+' · '+(ctx.sit.outs?ctx.sit.outs+' out'+(ctx.sit.outs>1?'s':''):'No outs')+(runnersText(ctx.sit.bases)?' · '+runnersText(ctx.sit.bases):''),
         onDone:r=>{lastLog=g.log.length+1;res(r)}})};
@@ -2358,6 +2532,9 @@ async function quickGame(id,st,lv){
   const me=g.me;$('resBanner').textContent=g.won?'Win':'Loss';$('resBanner').className='banner '+(g.won?'w':'l');$('resScore').textContent=g.teams[0].short+' '+g.score[0]+' · '+g.teams[1].short+' '+g.score[1];
   $('resLine').innerHTML=lineScore(g);$('resMe').innerHTML='<p class="eyebrow">Your line</p><p class="big num">'+me.h+'-for-'+me.ab+(me.hr?', '+me.hr+' HR':'')+(me.rbi?', '+me.rbi+' RBI':'')+'</p>';
   $('resLog').innerHTML=g.log.filter(x=>x.me).map(x=>'<li>'+esc(x.t)+'</li>').join('');$('resNext').onclick=()=>renderTitle();show('result')}
+
+function ipStr(outs){return Math.floor(outs/3)+(outs%3?'.'+outs%3:'')}
+function eraOf(P){return P&&P.outs?(P.r*27/P.outs):0}
 
 document.addEventListener('pointerdown',sndResume,{passive:true});
 $('snd').textContent=SND.on?'Sound on':'Sound off';$('snd').onclick=()=>{sndResume();$('snd').textContent=sndToggle()?'Sound on':'Sound off'};
