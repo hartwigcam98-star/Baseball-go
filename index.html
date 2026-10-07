@@ -251,6 +251,12 @@ textarea{width:100%;background:var(--panel-2);border:1px solid var(--line);borde
 #replayTag{position:absolute;left:12px;top:calc(env(safe-area-inset-top,0px) + 108px);display:flex;align-items:center;gap:8px;background:rgba(5,12,20,.86);border:1px solid var(--line);border-radius:10px;padding:6px 12px;font-family:var(--display);font-weight:800;font-size:18px;letter-spacing:.12em;text-transform:uppercase;pointer-events:none}
 #replayTag i{width:10px;height:10px;border-radius:50%;background:#F28A78;animation:blink 1s steps(2) infinite}#replayTag small{font-family:var(--body);font-weight:500;font-size:12px;letter-spacing:0;text-transform:none;color:var(--muted)}
 #ab.mode #meters{display:none}
+#locker,#story{position:fixed;inset:0;z-index:65;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(5,12,20,.85)}#locker .card,#story .card{max-width:460px;width:100%;max-height:calc(100vh - 32px);overflow:auto}
+#story .card{border-color:var(--ball);gap:14px}#story h2{font-size:34px}
+.lk-p[aria-pressed=true]{border-color:var(--ball);box-shadow:0 0 0 1px var(--ball) inset}
+#toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 90px);transform:translate(-50%,20px);z-index:80;max-width:min(420px,90vw);padding:10px 16px;border-radius:12px;background:#1E3A2A;border:1px solid var(--win);color:var(--chalk);font-weight:600;font-size:14px;opacity:0;pointer-events:none;transition:opacity .25s,transform .25s}
+#toast.on{opacity:1;transform:translate(-50%,0)}
+#clipBtn{position:absolute;right:12px;top:calc(env(safe-area-inset-top,0px) + 108px);z-index:6;padding:8px 14px;background:rgba(5,12,20,.86);border-color:var(--ball);color:var(--ball);font-family:var(--display);letter-spacing:.08em;text-transform:uppercase}
 #pitchBar{display:none;gap:6px;flex-wrap:wrap;pointer-events:auto}#ab.pitching #pitchBar{display:flex}#ab.pitching #stype,#ab.pitching #blastBtn,#ab.pitching #aimBtn{display:none}
 #pitchBar button{padding:6px 12px;font-size:14px;background:rgba(5,12,20,.82);font-family:var(--display);letter-spacing:.06em;text-transform:uppercase;border-color:var(--pc)}#pitchBar button[aria-pressed=true]{background:var(--pc);color:#10202B}
 #pmeter{position:absolute;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top,0px) + 150px);width:min(300px,80vw);height:22px;border-radius:11px;background:rgba(5,12,20,.88);border:2px solid var(--line);overflow:hidden;pointer-events:none}
@@ -286,8 +292,9 @@ textarea{width:100%;background:var(--panel-2);border:1px solid var(--line);borde
       <span class="chip" id="careerChip">No save yet</span>
       <div class="row"><button class="go" id="btnContinue" hidden>Continue career</button><button id="btnNew">New career</button><button id="btnNewConfirm" hidden>Start over? Tap to confirm</button></div>
       <div class="row"><button class="ghost" id="btnPractice">Batting practice</button><button class="ghost" id="btnQuick">Quick game</button></div>
-      <div class="row"><button class="ghost" id="btnDerby">Home Run Derby</button><button class="ghost" id="btnPinball">HR Pinball</button><button class="ghost" id="btnSettings">Settings</button></div>
+      <div class="row"><button class="ghost" id="btnDerby">Home Run Derby</button><button class="ghost" id="btnPinball">HR Pinball</button><button class="ghost" id="btnSettings">Settings</button><button class="ghost" id="btnLocker">Locker</button></div>
     </div>
+    <div class="card" id="todayCard"></div>
     <div class="card">
       <h3>How to hit</h3>
       <div class="how">
@@ -337,6 +344,7 @@ textarea{width:100%;background:var(--panel-2);border:1px solid var(--line);borde
     <div class="card" id="nextCard"></div>
     <div class="card" id="statsCard"></div>
     <div class="card" id="trainCard"></div>
+    <div class="card" id="perkCard"></div>
     <div class="card cal" id="schedCard"></div>
     <div class="card" id="careerCard"></div>
   </div>
@@ -385,6 +393,7 @@ textarea{width:100%;background:var(--panel-2);border:1px solid var(--line);borde
   <div id="pmeter" hidden><div id="pmGreen"></div><div id="pmRed"></div><div id="pmNeedle"></div></div>
   <button id="qte" hidden>DIVE!</button>
   <button id="stealBtn" hidden>Steal 2nd</button>
+  <button id="clipBtn" hidden>Share clip</button>
   <div id="fire" hidden>On fire</div>
   <div id="call"></div>
   <div id="grades"></div>
@@ -416,6 +425,9 @@ textarea{width:100%;background:var(--panel-2);border:1px solid var(--line);borde
 <div id="settings" hidden><div class="card"><div class="row between"><h3>Settings</h3><button class="go" id="setDone">Done</button></div><div id="setBody"></div></div></div>
 <div id="calib" hidden><div id="calDot"></div><p id="calMsg"></p><button class="ghost" id="calCancel">Cancel</button></div>
 <div id="modeEnd" hidden><div class="card"><p class="eyebrow" id="meTitle"></p><div id="meBody"></div><div class="row"><button class="go" id="meAgain" style="flex:1">Go again</button><button class="ghost" id="meQuit">Menu</button></div></div></div>
+<div id="locker" hidden><div class="card"><div class="row between"><h3>Locker</h3><button class="go" id="lockDone">Done</button></div><div id="lockBody"></div></div></div>
+<div id="story" hidden><div class="card"><p class="eyebrow" id="stEye"></p><h2 id="stTitle"></h2><div id="stText"></div><div class="row" id="stBtns"></div></div></div>
+<div id="toast"></div>
 <script>/* three.js r170 (MIT) */
 (function(){
 /**
@@ -469,7 +481,8 @@ function fxTick(dt){
   const tr=FX.trail,live=A&&(A.state==='pitch'||A.state==='play'||A.state==='replay');
   if(W3.ball.visible&&live){const p=W3.ball.position,last=FX.tp[FX.tp.length-1];if(!last||last.distanceToSquared(p)>0.01){FX.tp.push(p.clone());if(FX.tp.length>16)FX.tp.shift()}}else FX.tp=[];
   const n=FX.tp.length,mx=new T.Matrix4(),c=new T.Color(),base=A&&(A.state==='play'||A.state==='replay')?new T.Color(evColor(A.contact&&A.contact.ev)):A&&A.pitch&&A.read?new T.Color(PT[A.pitch.type].c):new T.Color(0xFFFFFF);
-  for(let i=0;i<n;i++){const f=(i+1)/n,s=0.3+0.7*f;mx.makeScale(s,s,s).setPosition(FX.tp[i]);tr.setMatrixAt(i,mx);c.copy(base).multiplyScalar(f*f*0.55);tr.setColorAt(i,c)}
+  const sty=A&&(A.state==='play'||A.state==='replay')?PROF.eq.trail:'heat';if(sty==='ice')base.setHex(0x7FD8FF);
+  for(let i=0;i<n;i++){const f=(i+1)/n,s=0.3+0.7*f;mx.makeScale(s,s,s).setPosition(FX.tp[i]);tr.setMatrixAt(i,mx);if(sty==='rainbow')c.setHSL((i/n+GT/2000)%1,1,0.55);else c.copy(base);c.multiplyScalar(f*f*0.55*(sty==='rainbow'?1.6:1));tr.setColorAt(i,c)}
   tr.count=n;tr.instanceMatrix.needsUpdate=true;if(tr.instanceColor)tr.instanceColor.needsUpdate=true;
   if(FX.shake>0)FX.shake-=dt}
 function shakeOffset(){if(FX.shake<=0)return null;const a=FX.shakeAmp*(FX.shake/0.2);return new T.Vector3((Math.random()-0.5)*a,(Math.random()-0.5)*a,(Math.random()-0.5)*a)}
@@ -1289,9 +1302,9 @@ function startReplay(){if(!A||!A.B||!OPT.replays)return false;A.replay={t0:now()
   resetPositions();placeRunners(A.cfg.sit?A.cfg.sit.bases:null);if(G.dropped){W3.scene.remove(G.dropped);G.dropped=null}
   // replay the play from contact: the batter's swing, the flight, the trot
   A.script=null;const B=A.B,R=A.R;planPlay(B,R);A.tP=now()+700;const b=G.batter;b.pose=null;b.startSwing('sw',0);b.swing.t=-0.7+SWT;
-  $('replayTag').hidden=false;$('ab').classList.add('rp');slowMo(true,0.55);W3.pci.visible=false;W3.zone.visible=false;FX.tp=[];return true}
+  $('replayTag').hidden=false;$('ab').classList.add('rp');clipStart();slowMo(true,0.55);W3.pci.visible=false;W3.zone.visible=false;FX.tp=[];return true}
 function tickReplay(dt){const t=(now()-A.tP)/1000;if(t<0){const hp=pitchPos(A.pitch,pitchTimeAtZ(A.pitch,-0.28)+t);W3.ball.position.copy(hp);return false}
-  const done=tickPlay(dt);if(done||t>6.5){$('replayTag').hidden=true;$('ab').classList.remove('rp');slowMo(false);return true}return false}
+  const done=tickPlay(dt);if(done||t>6.5){clipStop();$('replayTag').hidden=true;$('ab').classList.remove('rp');slowMo(false);return true}return false}
 function replayCam(){const bp=W3.ball.position,far=Math.hypot(bp.x,bp.z),t=(now()-A.tP)/1000;
   // low and wide down the first-base line at contact, then a chase view from behind the batter
   if(t<0.5)return[new T.Vector3(6.5,1.1,-3.5),new T.Vector3(-0.8,1.0,0)];
@@ -1398,7 +1411,7 @@ let swingType='normal';
    arm it and any fair contact that at-bat leaves the yard. */
 const MET={turbo:0,blast:0,armT:false,armB:false,streak:0};
 function resetMeters(){Object.assign(MET,{turbo:0,blast:0,armT:false,armB:false,streak:0});renderMeters()}
-function gainTurbo(n){MET.turbo=clamp(MET.turbo+n,0,300);renderMeters()}
+function gainTurbo(n){MET.turbo=clamp(MET.turbo+n*(hasPerk('turbo')?1.3:1),0,300);renderMeters()}
 function gainBlast(n){const was=MET.blast;MET.blast=clamp(MET.blast+n,0,100);if(was<100&&MET.blast>=100){showCall('Big Blast ready!',false,'w');sndCrowd(0.6)}renderMeters()}
 function renderMeters(){const t=$('turboBtn'),b=$('blastBtn');if(!t)return;const ch=Math.floor(MET.turbo/100);
   t.querySelector('.pips').innerHTML=[0,1,2].map(i=>'<i class="'+(i<ch?'on':'')+'" style="--f:'+clamp((MET.turbo-i*100)/100,0,1)+'"></i>').join('');
@@ -1472,7 +1485,7 @@ function pitchTimeAtZ(p,z){// solve R.z + v0.z t + a.z t²/2 = z
 /* ---- contact ---- */
 /* bx,by: where the ball crosses the plate; px,py: PCI centre; dt: swing timing error (s, + = late) */
 /* the contact circle's size and the timing window both come from the Contact rating and the swing type */
-function pciR(c,styp){return(0.085+c*0.00085)*STYPES[styp].pci*(MET.armT?1.2:1)*guessMult()}
+function pciR(c,styp){return(0.085+c*0.00085)*STYPES[styp].pci*(MET.armT?1.2:1)*guessMult()*perkCircle()}
 function timingWin(c,styp){return(0.075+c*0.0004)*STYPES[styp].tw*(MET.armT?1.25:1)}// seconds either side: inside 35% is Perfect, 70% Good
 function contactOf(bx,by,px,py,dt,st,styp,p){
   const S=STYPES[styp],c=st.contact,rx=pciR(c,styp),ry=rx*0.8,tw=timingWin(c,styp);
@@ -1483,7 +1496,7 @@ function contactOf(bx,by,px,py,dt,st,styp,p){
     return Object.assign(base,{kind:'play',ev,la,spray:spray*Math.PI/180,q:0.2,bunt:true})}
   const perfect=qt<=0.35&&d<=0.38;
   let q=clamp(1-d*d*0.5-qt*qt*0.55,0,1);if(perfect)q=Math.max(q,0.93);
-  const top=(80+st.power*0.27)*S.ev*(MET.armT?1.07:1),ev=clamp(perfect?top*rnd(0.98,1.03):top*(0.58+0.42*q)+gauss()*2.5,35,121);
+  const top=(80+st.power*0.27)*S.ev*(MET.armT?1.07:1)*(dt<-0.01&&hasPerk('pull')?1.04:1),ev=clamp(perfect?top*rnd(0.98,1.03):top*(0.58+0.42*q)+gauss()*2.5,35,121);
   // under the ball (circle low) lifts it; over the ball beats it into the ground
   let la=11-oy*34+(by-0.76)*-14+gauss()*(perfect?3:7);if(qt>0.75)la+=gauss()*14;
   // a perfect swing is always squared up: a line drive or a drive in the air, never a dribbler or a pop-up
@@ -1507,7 +1520,7 @@ function startPA(cfg){
   resetPositions();placeRunners(cfg.sit?cfg.sit.bases:null);if(W3.camPos.z<0){W3.camPos.set(0.3,2.05,5.3);W3.camLook.set(-0.3,0.9,-9)}
   W3.mark.visible=false;W3.land.visible=false;W3.ball.visible=true;FX.tp=[];
   A.pci={x:0,y:0.76};A.guess=null;renderGuess();W3.pci.visible=true;W3.zone.visible=true;if(W3.tracer)W3.tracer.visible=false;$('replayTag').hidden=true;
-  renderHUD();renderAim();say(cfg.intro||AIMS[aimMode].hint+'.');
+  renderHUD();renderAim();say(cfg.intro||AIMS[aimMode].hint+'.');$('clipBtn').hidden=true;applyCosmetics();if(cfg.ab&&!cfg.practice)walkUp();
 }
 function nextPitchSoon(ms){A.state='ready';A.t0=now()+(ms||rnd(800,1300));A.pitch=null;A.swing=null;A.contact=null;A.judged=false;A.whiff=false;A.popped=false;A.foulPlay=false;A.B=null;A.R=null;A.script=null;
   const b=G.batter;if(!(b.swing&&b.swing.type==='sw')){b.swing=null;b.post=null}b.pose='stance';b.pos.set(BATTER_X,0,0.05);b.yaw=Math.PI/2;if(b.bat)b.bat.visible=true;
@@ -1529,7 +1542,7 @@ function release(){
   // the catcher sets up where the pitch is headed
   A.catchZ=0.92;A.tCatch=A.tR+pitchTimeAtZ(A.pitch,A.catchZ)*1000;
   // reading the pitch: a sharper eye names it sooner
-  const eye=A.cfg.st.eye;A.tRead=A.tR+clamp(330-eye*2.6,60,300);A.read=false;
+  const eye=A.cfg.st.eye;A.tRead=A.tR+clamp(330-eye*2.6,60,300)-(hasPerk('eye')?80:0);A.read=false;
   sndWhoosh();if(A.pitch.gold){say('Golden ball! A homer counts double.');W3.ball.material.emissive.setHex(0xFFC21A);W3.ball.material.emissiveIntensity=1.4}else if(A.pitch.turbo){say('Turbo heater from '+A.cfg.pitcher.name+'!');W3.ball.material.emissive.setHex(0xFF5A1F);W3.ball.material.emissiveIntensity=1.6}else{W3.ball.material.emissive.setHex(0);}
 }
 /* the swing: tDown is when the finger touched (taps are judged from the touch, not the lift) */
@@ -1558,7 +1571,7 @@ function steerFor(x,y){const b=G.batter;if(!G.sweet)return null;
 function judgeContact(){
   const s=A.swing,p=A.pitch,tc=s.t+(s.type==='bunt'?0.06:SWT)*1000,dt=(tc-A.tCon)/1000;
   const bp=pitchPos(p,pitchTimeAtZ(p,0));
-  const res=contactOf(bp.x,bp.y,s.pci.x,s.pci.y,dt,A.cfg.st,s.type,p);showGrades(res);debugSwing(res);
+  const res=contactOf(bp.x,bp.y,s.pci.x,s.pci.y,dt,A.cfg.st,s.type,p);showGrades(res);debugSwing(res);if(res.perfect)emit({t:'perfect'});
   if(s.turbo){MET.armT=false;MET.turbo=Math.max(0,MET.turbo-100);renderMeters()}
   // Big Blast: any fair contact leaves the yard
   if(s.blast&&res.kind==='play'){res.ev=Math.max(res.ev,109);res.la=rnd(25,31);res.spray=clamp(res.spray,-0.42,0.42);res.blast=true}A.contact=res;A.contact.dt=dt;res.dt=dt;res.bx=bp.x;res.by=bp.y;A.contact.bx=bp.x;A.contact.by=bp.y;
@@ -1664,9 +1677,9 @@ function receiverAt(p){let best=null,bd=9;for(let i=1;i<=9;i++){const f=G.fielde
 function turnTo(a,b,k){let d=b-a;d=Math.atan2(Math.sin(d),Math.cos(d));return a+d*Math.min(1,k)}
 function dropBat(){const b=G.batter;if(!b.bat)return;const m=b.bat.clone();W3.scene.add(m);const p=b.batPoint(20);m.scale.setScalar(0.01*PSCALE*b.sz);G.dropped=m;
   // a home run gets a bat flip: tossed up end over end
-  if(A&&A.R&&A.R.code==='HR'){m.position.copy(p);G.flip={m,v:new T.Vector3(rnd(-0.5,0.5),5.5,rnd(0.5,1.5)),w:rnd(9,14)};return}
+  if(A&&A.R&&A.R.code==='HR'){m.position.copy(p);const st=PROF.eq.flip;G.flip={m,v:new T.Vector3(rnd(-0.5,0.5),st==='moon'?9:5.5,rnd(0.5,1.5)),w:rnd(9,14),heli:st==='heli'};return}
   m.position.copy(p).setY(0.04);m.rotation.set(Math.PI/2,0,rnd(0,6.28))}
-function flipTick(dt){const F=G&&G.flip;if(!F)return;F.v.y-=9.8*dt;F.m.position.addScaledVector(F.v,dt);F.m.rotation.x+=F.w*dt;F.m.rotation.z+=F.w*0.3*dt;if(F.m.position.y<0.05){F.m.position.y=0.05;F.m.rotation.set(Math.PI/2,0,F.m.rotation.z);G.flip=null}}
+function flipTick(dt){const F=G&&G.flip;if(!F)return;F.v.y-=9.8*dt;F.m.position.addScaledVector(F.v,dt);if(F.heli){F.m.rotation.set(Math.PI/2,0,F.m.rotation.z+F.w*2.2*dt)}else{F.m.rotation.x+=F.w*dt;F.m.rotation.z+=F.w*0.3*dt}if(F.m.position.y<0.05){F.m.position.y=0.05;F.m.rotation.set(Math.PI/2,0,F.m.rotation.z);G.flip=null}}
 /* ---- result of the plate appearance ---- */
 const CODE_TEXT={K:'Strikeout',BB:'Walk',HBP:'Hit by pitch','1B':'Single','2B':'Double','3B':'Triple',HR:'Home run!',GO:'Ground out',FO:'Fly out',LO:'Line out',PO:'Pop out',DP:'Double play',FC:'Fielder’s choice',E:'Safe on error',SF:'Sacrifice fly',SH:'Sacrifice bunt'};
 function endPA(r){
@@ -1678,6 +1691,7 @@ function endPA(r){
     const mv=[];if(b[0]!=null){nb[1]=b[0];mv.push({from:1,to:2});if(b[1]!=null){nb[2]=b[1];mv.push({from:2,to:3});if(b[2]!=null){runs=1;mv.push({from:3,to:4})}}else nb[2]=b[2]}else{nb[1]=b[1];nb[2]=b[2]}
     res.out=0;res.bases=nb;res.runs=runs;res.rbi=runs;res.runnerMoves=mv;res.desc=r.code==='BB'?'walks':'is hit by a pitch'}
   if(A.cfg.sit&&A.outs0!=null)res.csOuts=A.cfg.sit.outs-A.outs0;
+  if(!A.pitching)paEvents(res);
   A.res=res;A.state='done';A.tDone=now();
   const big=['1B','2B','3B','HR'].includes(res.code);
   if(!A.pitching)rewardMeters(res);else{const c=res.code;if(res.out)gainTurbo(35)}
@@ -1686,6 +1700,8 @@ function endPA(r){
   if(res.runs&&!A.practice)say((res.runs===1?'A run scores':res.runs+' runs score')+'!');
   renderHUD();
 }
+function paEvents(res){const c=res.code,hit=['1B','2B','3B','HR'].includes(c);emit({t:'pa',code:c,full:A.count[0]===3&&A.count[1]===2});
+  if(hit){emit({t:'hit',code:c,ft:distFt(),oppo:A.contact&&A.contact.spray>0.2});gainProf({'1B':5,'2B':8,'3B':10,HR:15}[c]*(A.practice?0.5:1))}else gainProf(A.practice?0:1)}
 function rewardMeters(res){const c=res.code,hit={'1B':[60,20],'2B':[70,30],'3B':[80,40],HR:[100,40]}[c];
   if(hit){gainTurbo(hit[0]);if(!(A.contact&&A.contact.blast))gainBlast(hit[1]+(res.rbi||0)*5);MET.streak++}
   else if(c==='BB'||c==='HBP'){gainTurbo(50);gainBlast(10)}else{MET.streak=0;if(res.rbi)gainBlast(res.rbi*5)}
@@ -1697,7 +1713,7 @@ function finishPlay(){const R=A.R;
   const out={code:R.code==='HR'?'HR':R.code,out:R.out,bases:R.bases,runs:R.runs,rbi:R.rbi,desc:R.desc,hit:R.hit,err:R.err,runnerMoves:R.runnerMoves};
   if(A.practice){A.state='done';A.tDone=now();A.res=out;showCall(CODE_TEXT[R.code]||R.code,false,R.hit?'w':'l');say(contactLine());
     if(A.cfg.mode){modeSwing('play',R);if(A.state!=='over'){A.state='done';A.tDone=now();A.res=out}return}
-    rewardMeters(out);if(R.code==='HR')showCall('Home run! '+Math.round(distFt())+' ft',false,'w');
+    paEvents(out);rewardMeters(out);if(R.code==='HR')showCall('Home run! '+Math.round(distFt())+' ft',false,'w');
     const bp=A.bp=A.bp||{n:0,hits:0,hr:0,best:0};bp.n++;if(R.hit)bp.hits++;if(R.code==='HR')bp.hr++;const ft=Math.round(distFt());if(ft>bp.best)bp.best=ft;renderHUD();return}
   endPA(out)}
 /* projected distance: where it landed, or for a home run where it would have come down */
@@ -1797,6 +1813,7 @@ cv.addEventListener('pointerup',e=>{if(!drag||drag.id!==e.pointerId)return;const
 cv.addEventListener('pointercancel',()=>{drag=null});
 $('swingBtn').addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();if(!A)return;
   if(A.pitching&&A.state==='paim'){startMeter();return}if(A.pitching&&A.state==='pmeter'){stopMeter();return}if(A.state==='play'||A.state==='done'){skipPlay();return}swingAt(now())});
+$('clipBtn').addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();clipShare()});
 $('qte').addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();if(!A)return;if(A.qte&&!A.qte.done)qteTap();else if(A.stretch&&!A.stretch.done)stretchTap()});
 $('stealBtn').addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();armSteal()});
 window.addEventListener('keydown',e=>{if($('ab').hidden||!A)return;
@@ -1856,6 +1873,113 @@ function camera(dt){
   else{const port=W3.cam.aspect<1,ch=CAMH[OPT.cam]||0;tp=new T.Vector3(port?0.3:0.45,(port?2.05:1.9)+ch,(port?5.3:4.6)+ch*0.8);tl=new T.Vector3(port?-0.3:-0.35,port?0.9:1.1,-9);k=Math.min(1,dt*4)}
   W3.camPos.lerp(tp,k);W3.camLook.lerp(tl,k);W3.cam.position.copy(W3.camPos);const sk=shakeOffset();if(sk)W3.cam.position.add(sk);W3.cam.lookAt(W3.camLook)}
 
+/* ================= progression: your profile, perks, the locker, daily challenges, story beats, unlocks, clips =================
+   The profile is shared by every mode and every career: it levels up as you play, unlocks players, parks and cosmetics,
+   and keeps your daily challenges and login streak. Perks belong to a career and change things you can see. */
+const PROF_KEY='bg-prof';
+const PROF=Object.assign({xp:0,unl:{},eq:{bat:'natural',flip:'classic',trail:'heat',song:'none'},streak:0,last:'',daily:null,stats:{hr:0,hits:0,games:0}},(()=>{try{return JSON.parse(localStorage.getItem(PROF_KEY))||{}}catch(e){return{}}})());
+function storeProf(){try{localStorage.setItem(PROF_KEY,JSON.stringify(PROF))}catch(e){}}
+function profLv(x){return Math.floor(Math.sqrt((x==null?PROF.xp:x)/60))+1}
+function profNext(){const l=profLv();return 60*l*l}
+/* ---- players and parks unlock as your profile levels up ---- */
+const STARTERS=['boss','ch06','ch08','ch12','ch31','remy'];
+const UNLOCK_ORDER=['ch09','ch17','ch28','granny','ch01','brute','ch23','ch24','ty','ch43','peasant','ch39','vegas','ch42'];
+function charUnlockLv(id){const i=UNLOCK_ORDER.indexOf(id);return i<0?1:2+i}
+function charUnlocked(id){return STARTERS.includes(id)||profLv()>=charUnlockLv(id)||(save&&save.char===id)}
+const PARK_UNLOCK={hs:1,college:3,minors:6,majors:9};
+/* ---- cosmetics: earned by playing, nothing for sale ---- */
+const COSM={
+  bat:[['natural','Natural ash',0xC8955A,'Start'],['blonde','Blonde maple',0xE8C890,'Level 2'],['black','Black',0x222222,'Hit 5 home runs'],['red','Fire red',0xC0392B,'Win a Derby with 6+'],['gold','Gold',0xF2C230,'Level 12']],
+  flip:[['classic','Classic toss','Start'],['heli','Helicopter','Hit a 420 ft homer'],['moon','Moonshot','Level 8']],
+  trail:[['heat','Heat (by exit velo)','Start'],['ice','Ice blue','Level 4'],['rainbow','Rainbow','Complete 10 daily challenges']],
+  song:[['none','No walk-up','Start'],['organ','Ballpark organ','Level 3'],['anthem','Stadium anthem','Level 6'],['funk','Funky bass','Level 10']]};
+function cosmUnlocked(kind,id){const it=COSM[kind].find(c=>c[0]===id);if(!it)return false;const cond=it[it.length-1];if(cond==='Start')return true;
+  const m=cond.match(/^Level (\d+)/);if(m)return profLv()>=+m[1];return!!PROF.unl[kind+':'+id]}
+function unlockCosm(kind,id){if(PROF.unl[kind+':'+id])return;PROF.unl[kind+':'+id]=1;storeProf();toast('Unlocked: '+COSM[kind].find(c=>c[0]===id)[1]+' ('+kind+')')}
+function applyCosmetics(){if(!G||!G.batter||!G.batter.bat)return;const b=COSM.bat.find(c=>c[0]===PROF.eq.bat)||COSM.bat[0];G.batter.bat.userData.wood.color.setHex(b[2])}
+/* ---- perks: a career's earned abilities, slots open as the career levels up ---- */
+const PERKS=[
+  ['clutch','Clutch','Your circle is 15% bigger with runners in scoring position',3],
+  ['eye','Eagle Eye','You read the pitch type 80 ms sooner',5],
+  ['twostrike','Two-Strike Hitter','Your circle is 12% bigger with two strikes',7],
+  ['pull','Pull Power','+4% exit velocity when you pull the ball',9],
+  ['speed','Speed Demon','A better jump on steals and faster to first',11],
+  ['turbo','Turbo Charged','Your Turbo meter fills 30% faster',13]];
+function careerLv(){return save?profLv(save.xpTotal||0):1}
+function perkSlots(){const l=careerLv();return l>=15?3:l>=8?2:l>=3?1:0}
+let ACTIVE_PERKS=[];
+function hasPerk(id){return ACTIVE_PERKS.includes(id)}
+function perkCircle(){if(!A||A.pitching||!ACTIVE_PERKS.length)return 1;let k=1;const s=A.cfg.sit;if(hasPerk('clutch')&&s&&s.bases&&(s.bases[1]!=null||s.bases[2]!=null))k*=1.15;if(hasPerk('twostrike')&&A.count&&A.count[1]===2)k*=1.12;return k}
+function perksCard(){const slots=perkSlots(),eq=save.perks||[],l=careerLv();
+  return'<div class="row between"><h3>Perks</h3><span class="chip num">Career level '+l+' · '+eq.length+'/'+slots+' slots</span></div>'+
+    PERKS.map(([id,n,d,lv])=>{const unl=l>=lv,on=eq.includes(id);return'<div class="lk-item'+(on?' done':'')+'"><div style="flex:1;min-width:0"><strong>'+n+'</strong><p class="muted" style="font-size:13px">'+d+'</p></div>'+(unl?'<button data-perk="'+id+'" '+(!on&&eq.length>=slots?'disabled':'')+'>'+(on?'Equipped':'Equip')+'</button>':'<span class="muted" style="font-size:12px">Career lv '+lv+'</span>')+'</div>'}).join('')+
+    (slots?'':'<p class="muted" style="font-size:13px">Your first perk slot opens at career level 3. Every game earns career XP.</p>')}
+function wirePerks(el){el.querySelectorAll('button[data-perk]').forEach(b=>b.onclick=()=>{const id=b.dataset.perk;save.perks=save.perks||[];const i=save.perks.indexOf(id);if(i>=0)save.perks.splice(i,1);else if(save.perks.length<perkSlots())save.perks.push(id);store();renderHub()})}
+
+/* ---- daily challenges and the login streak ---- */
+const CHALLENGES=[
+  ['oppo2b','Hit an opposite-field double',e=>e.t==='hit'&&e.code==='2B'&&e.oppo,60],
+  ['hr400','Hit a home run of 400+ feet',e=>e.t==='hit'&&e.code==='HR'&&e.ft>=400,80],
+  ['fullbb','Draw a walk in a full count',e=>e.t==='pa'&&e.code==='BB'&&e.full,50],
+  ['multi','Get 2+ hits in a career game',e=>e.t==='game'&&e.h>=2,70],
+  ['derby6','Hit 6+ in a Home Run Derby',e=>e.t==='mode'&&e.m==='derby'&&e.score>=6,70],
+  ['pin800','Score 800+ in Home Run Pinball',e=>e.t==='mode'&&e.m==='pinball'&&e.score>=800,70],
+  ['steal','Steal a base',e=>e.t==='sb',50],
+  ['perfect3','Get three Perfect / Square swings',e=>e.t==='perfect'&&e.n>=3,60],
+  ['k5','Strike out 5 in a start',e=>e.t==='game'&&e.pk>=5,80],
+  ['triple','Hit a triple',e=>e.t==='hit'&&e.code==='3B',90],
+  ['rbi3','Drive in 3+ runs in a game',e=>e.t==='game'&&e.rbi>=3,70],
+  ['win','Win a career game',e=>e.t==='game'&&e.won,40]];
+function dayKey(d){d=d||new Date();return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate()}
+function seeded(s){let h=2166136261;for(const c of s){h^=c.charCodeAt(0);h=Math.imul(h,16777619)}return()=>{h^=h<<13;h^=h>>>17;h^=h<<5;return((h>>>0)%10000)/10000}}
+function dailyToday(){const k=dayKey();if(!PROF.daily||PROF.daily.date!==k){const r=seeded(k),pool=CHALLENGES.slice(),list=[];while(list.length<3){const i=Math.floor(r()*pool.length);list.push(pool.splice(i,1)[0][0])}
+    PROF.daily={date:k,list,done:[]};
+    // login streak: consecutive days played
+    const y=new Date();y.setDate(y.getDate()-1);PROF.streak=PROF.last===dayKey(y)?(PROF.streak||0)+1:PROF.last===k?PROF.streak:1;PROF.last=k;storeProf()}
+  return PROF.daily}
+let PERFECTS=0;
+/* every notable thing that happens comes through here */
+function emit(e){const D=dailyToday();
+  if(e.t==='perfect'){PERFECTS++;e.n=PERFECTS}
+  if(e.t==='hit'){PROF.stats.hits++;if(e.code==='HR'){PROF.stats.hr++;if(PROF.stats.hr>=5)unlockCosm('bat','black');if(e.ft>=420)unlockCosm('flip','heli')}}
+  if(e.t==='mode'&&e.m==='derby'&&e.score>=6)unlockCosm('bat','red');
+  for(const id of D.list){if(D.done.includes(id))continue;const c=CHALLENGES.find(x=>x[0]===id);if(c&&c[2](e)){D.done.push(id);PROF.dailyDone=(PROF.dailyDone||0)+1;gainProf(c[3]);if(save&&!save.retired){save.xp+=Math.round(c[3]/2);store()}toast('Daily challenge done: '+c[1]+' (+'+c[3]+' XP)');if(PROF.dailyDone>=10)unlockCosm('trail','rainbow')}}
+  storeProf()}
+function gainProf(n){const before=profLv();PROF.xp+=n;storeProf();const after=profLv();if(after>before){toast('Level '+after+'!'+levelUnlockText(after))}}
+function levelUnlockText(l){const c=ROSTER.find(r=>charUnlockLv(r.id)===l&&!STARTERS.includes(r.id)),p=Object.entries(PARK_UNLOCK).find(([k,v])=>v===l),cs=Object.entries(COSM).map(([k,v])=>v.find(x=>x[x.length-1]==='Level '+l)).filter(Boolean);
+  return(c?' Unlocked '+c.name+'.':'')+(p?' New park for quick modes.':'')+cs.map(x=>' Unlocked '+x[1]+'.').join('')}
+let toastT=null;function toast(t){const e=$('toast');e.textContent=t;e.className='on';clearTimeout(toastT);toastT=setTimeout(()=>e.className='',3200)}
+function todayCard(){const D=dailyToday(),l=profLv(),pct=Math.round((PROF.xp-60*(l-1)*(l-1))/(profNext()-60*(l-1)*(l-1))*100);
+  return'<div class="row between"><h3>Today</h3><span class="chip">🔥 '+(PROF.streak||1)+'-day streak</span></div>'+
+    '<div class="row between" style="font-size:14px"><span>Level <b class="num">'+l+'</b></span><span class="muted num">'+PROF.xp+' / '+profNext()+' XP</span></div><div class="bar xpbar"><i style="width:'+clamp(pct,0,100)+'%"></i></div>'+
+    '<ul class="notes">'+D.list.map(id=>{const c=CHALLENGES.find(x=>x[0]===id),d=D.done.includes(id);return'<li class="'+(d?'n-daily':'')+'">'+(d?'✓ ':'')+esc(c[1])+' <span class="muted">+'+c[3]+' XP</span></li>'}).join('')+'</ul>'}
+/* ---- the locker: equip what you've earned ---- */
+function openLocker(){const p=$('locker');p.hidden=false;const sec=(kind,title)=>'<h3 style="margin-top:6px">'+title+'</h3><div class="lk-grid">'+COSM[kind].map(c=>{const u=cosmUnlocked(kind,c[0]),on=PROF.eq[kind]===c[0];
+    return'<button class="lk-p'+(u?'':' locked')+'" data-k="'+kind+'" data-v="'+c[0]+'" aria-pressed="'+on+'" '+(u?'':'disabled')+'>'+(kind==='bat'?'<span class="sw" style="background:#'+new T.Color(c[2]).getHexString()+'"></span>':'')+'<strong>'+esc(c[1])+'</strong><small>'+(u?(on?'Equipped':'Tap to equip'):esc(c[c.length-1]))+'</small></button>'}).join('')+'</div>';
+  $('lockBody').innerHTML='<p class="muted">Level '+profLv()+'. Everything here is earned by playing.</p>'+sec('bat','Bat')+sec('flip','Bat flip')+sec('trail','Home run trail')+sec('song','Walk-up music')+
+    '<h3 style="margin-top:6px">Players</h3><p class="muted" style="font-size:13px">'+ROSTER.filter(r=>!charUnlocked(r.id)).map(r=>esc(r.name)+' (level '+charUnlockLv(r.id)+')').join(' · ')||'Everyone is unlocked.'+'</p>';
+  $('lockBody').querySelectorAll('button[data-k]').forEach(b=>b.onclick=()=>{PROF.eq[b.dataset.k]=b.dataset.v;storeProf();if(b.dataset.k==='song')walkUp();openLocker()});
+  $('lockDone').onclick=()=>{p.hidden=true}}
+/* ---- walk-up music: a few bars synthesised when you step in ---- */
+const SONGS={organ:[[523,0.18],[659,0.18],[784,0.18],[1046,0.36],[784,0.18],[1046,0.5]],anthem:[[392,0.3],[392,0.3],[523,0.3],[659,0.6],[587,0.3],[523,0.6]],funk:[[110,0.15],[0,0.1],[110,0.15],[147,0.2],[165,0.2],[110,0.3],[196,0.3]]};
+function walkUp(){const s=SONGS[PROF.eq.song];if(!s||!sndReady())return;let t=0;const c=SND.ctx;
+  for(const [f,d] of s){if(f){const o=c.createOscillator(),g=c.createGain();o.type=PROF.eq.song==='funk'?'sawtooth':PROF.eq.song==='organ'?'square':'triangle';o.frequency.value=f;
+      g.gain.setValueAtTime(0.0001,c.currentTime+t);g.gain.linearRampToValueAtTime(0.12,c.currentTime+t+0.02);g.gain.exponentialRampToValueAtTime(0.0001,c.currentTime+t+d);o.connect(g);g.connect(SND.master);o.start(c.currentTime+t);o.stop(c.currentTime+t+d+0.05)}t+=d}}
+/* ---- story beats: big career moments get their own screen ---- */
+function storyBeat(eyebrow,title,text,btns){return new Promise(res=>{const p=$('story');p.hidden=false;$('stEye').textContent=eyebrow;$('stTitle').textContent=title;$('stText').innerHTML=text;
+  $('stBtns').innerHTML=(btns||[['ok','Let’s go']]).map(([v,l],i)=>'<button class="'+(i?'ghost':'go')+'" data-v="'+v+'">'+esc(l)+'</button>').join('');
+  $('stBtns').querySelectorAll('button').forEach(b=>b.onclick=()=>{p.hidden=true;res(b.dataset.v)});sndCrowd(0.5)})}
+const NICKS=['The Hammer','Big Train','Mr. Clutch','The Kid','Sweet Swing','Thunder','The Professor','Moonshot'];
+/* ---- share a home run: the replay is recorded from the canvas ---- */
+const CLIP={rec:null,chunks:[],blob:null};
+function clipStart(){if(!window.MediaRecorder||!W3.r)return;try{const st=W3.r.domElement.captureStream(30),types=['video/mp4','video/webm;codecs=vp9','video/webm'],type=types.find(t=>MediaRecorder.isTypeSupported(t));
+    CLIP.chunks=[];CLIP.rec=new MediaRecorder(st,type?{mimeType:type,videoBitsPerSecond:2500000}:undefined);CLIP.rec.ondataavailable=e=>{if(e.data&&e.data.size)CLIP.chunks.push(e.data)};
+    CLIP.rec.onstop=()=>{CLIP.blob=new Blob(CLIP.chunks,{type:CLIP.rec.mimeType||'video/webm'});$('clipBtn').hidden=false};CLIP.rec.start()}catch(e){CLIP.rec=null}}
+function clipStop(){if(CLIP.rec&&CLIP.rec.state!=='inactive')try{CLIP.rec.stop()}catch(e){}}
+async function clipShare(){const b=CLIP.blob;if(!b)return;const ext=b.type.includes('mp4')?'mp4':'webm',f=new File([b],'baseball-go-homer.'+ext,{type:b.type});
+  try{if(navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f],title:'Baseball Go home run'});return}}catch(e){if(e&&e.name==='AbortError')return}
+  const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=f.name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},2000)}
+
 /* ================= quick modes: Home Run Derby and Home Run Pinball =================
    Both run on batting practice: a coach throws meatballs and every swing counts.
    Derby: 10 outs, any swing that isn't a homer is an out, every fifth pitch is a golden ball worth two.
@@ -1865,7 +1989,7 @@ const BEST_KEY='bg-best';
 function bests(){try{return JSON.parse(localStorage.getItem(BEST_KEY))||{}}catch(e){return{}}}
 function today(){const d=new Date();return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate()}
 let MD=null;// the running mode
-async function startMode(mode,id,st,lv){
+async function startMode(mode,id,st,lv){ACTIVE_PERKS=[];
   const pid=id==='granny'?'ch39':'granny';
   await setupScene({park:LEVELS[lv].park,batterId:id,pitcherId:pid,homeColor:0x2E5FA8,defHue:200,myHue:0});sndResume();
   MD={mode,lv,id,st,score:0,outs:0,swings:0,pitchN:0,dist:0,targets:[]};
@@ -1900,7 +2024,7 @@ function renderMode(){if(!MD)return;const B=bests()[MD.mode]||0;
   $('bug').innerHTML='<div class="bl"><span class="eyebrow">'+MODES[MD.mode].n+'</span><span class="tm">Score <b class="num">'+MD.score+'</b></span></div><div class="bm"><span class="num">'+(MD.mode==='derby'?MD.outs+'/10 outs':MD.swings+'/20')+'</span><span class="muted" style="font-size:12px">Best '+B+'</span></div>'}
 function endMode(){if(!MD||!A)return;const b=bests(),m=MD.mode,best=b[m]||0,dk=m+'_'+today(),day=b[dk]||0,isBest=MD.score>best;
   if(isBest)b[m]=MD.score;if(MD.score>day)b[dk]=MD.score;try{localStorage.setItem(BEST_KEY,JSON.stringify(b))}catch(e){}
-  A.state='over';if(typeof onModeScore==='function')onModeScore(m,MD.score);
+  A.state='over';emit({t:'mode',m,score:MD.score});gainProf(Math.round(MD.score*(m==='derby'?4:0.05)));
   const p=$('modeEnd');p.hidden=false;$('meTitle').textContent=MODES[m].n;
   $('meBody').innerHTML='<p class="score-line num">'+MD.score+'</p><p class="muted">'+(m==='derby'?'home runs'+(MD.dist?' · '+MD.dist.toLocaleString()+' total feet':''):'points')+'</p>'+(isBest?'<p class="banner w">New personal best!</p>':'<p class="muted">Best: '+best+' · Today: '+Math.max(day,MD.score)+'</p>');
   $('meAgain').onclick=()=>{p.hidden=true;clearTargets();const s=MD;MD=null;startMode(s.mode,s.id,s.st,s.lv)};
@@ -2002,7 +2126,7 @@ function stealable(){const s=A&&A.cfg.sit;if(!s||A.pitching||A.practice||A.cfg.m
 function renderRunBtns(){const st=$('stealBtn');if(!st)return;const k=A&&A.state==='ready'&&!A.steal?stealable():-1;st.hidden=k<0;if(k>=0)st.textContent='Steal '+['2nd','3rd'][k]}
 function armSteal(){const k=stealable();if(k<0||!A||A.state!=='ready')return;A.steal={k,spd:A.cfg.sit.bases[k]};$('stealBtn').hidden=true;say('The runner goes on the pitch!')}
 function stealTick(){const S=A.steal;if(!S||S.over)return;const t=now();const r=G.runners[S.k];if(!r)return;
-  if(A.state==='wind'&&!S.t0)S.t0=A.tW-300;if(!S.t0)return;
+  if(A.state==='wind'&&!S.t0)S.t0=A.tW-300-(hasPerk('speed')?150:0);if(!S.t0)return;
   const v=runV(S.spd),d=Math.min(runDist((t-S.t0)/1000,v,6.5),BASE_L-2.4),a=BASES[S.k+1],n=BASES[S.k+2],dir=n.clone().sub(a).normalize();
   r.pos.copy(a).addScaledVector(dir,(S.k===1?1.5:2.6)+d);r.pos.y=0;r.yaw=Math.atan2(dir.x,dir.z);r._v=v;r.pose=null}
 /* the throw down after the pitch is caught: runner time against pop time plus the throw */
@@ -2011,7 +2135,7 @@ function stealResolve(){const S=A.steal;if(!S||S.over)return false;S.over=true;
   const p=A.pitch,tRun=runTime(BASE_L-3.4,runV(S.spd),6.5)+0.15,tCatchFromJump=(A.tCatch-S.t0)/1000,tThrow=tCatchFromJump+(S.k===1?1.6:1.75)+(p&&PT[p.type].v<0.9?0.12:0);
   const safe=tRun+gauss()*0.12<tThrow,sit=A.cfg.sit;
   W3.ball.visible=true;A.stealAnim={t0:now(),to:BASES[S.k+2].clone().setY(1.2),safe};
-  if(safe){sit.bases[S.k+1]=S.spd;sit.bases[S.k]=null;showCall('Stolen base!',false,'w');sndCrowd(0.6)}
+  if(safe){sit.bases[S.k+1]=S.spd;sit.bases[S.k]=null;showCall('Stolen base!',false,'w');sndCrowd(0.6);emit({t:'sb'})}
   else{sit.bases[S.k]=null;sit.outs++;showCall('Caught stealing',false,'l');sndCrowd(0.3)}
   const r=G.runners[S.k];if(r)r.mesh.visible=safe;placeRunners(sit.bases);renderHUD();
   if(!safe&&sit.outs>=3){A.res={code:'CS',noPA:true,out:0,csOut:true,bases:[null,null,null],runs:0,rbi:0,desc:'',endInning:true};A.state='done';A.tDone=now();A.ended=true;return true}
@@ -2205,7 +2329,8 @@ function addLine(a,b){for(const k in b)a[k]=(a[k]||0)+b[k];return a}
 function renderTitle(){
   const has=!!save&&!save.retired;$('btnContinue').hidden=!has;$('btnNewConfirm').hidden=true;$('btnNew').hidden=false;
   $('careerChip').textContent=save?(RBYID[save.char].name+' · '+(save.retired?'Retired':levelName())+' · Age '+save.age):'No save yet';
-  $('btnNew').className=has?'':'go';renderSaveCard();show('title')}
+  $('btnNew').className=has?'':'go';renderSaveCard();$('todayCard').innerHTML=todayCard();show('title')}
+$('btnLocker').onclick=()=>openLocker();
 function levelName(){return save.level==='hs'?'High school':save.level==='college'?save.college.name:(save.org?save.org.city+' '+AFFIL[save.level]+(save.level==='mlb'?save.org.name:' '+save.team.name).replace(/^ /,''):LEVELS[save.level].name)}
 $('btnContinue').onclick=()=>renderHub();
 $('btnNew').onclick=()=>{if(save&&!save.retired){$('btnNew').hidden=true;$('btnNewConfirm').hidden=false}else openSelect('career')};
@@ -2242,8 +2367,10 @@ function openSelect(mode){
   selMode=mode;selId=mode!=='career'&&save?save.char:null;
   $('selEyebrow').textContent=mode==='career'?'New career':mode==='practice'?'Batting practice':mode==='derby'?'Home Run Derby':mode==='pinball'?'Home Run Pinball':'Quick game';
   $('selIntro').textContent=mode==='career'?'Every career starts as a 16-year-old high school sophomore with the same total ratings, shaped like the player you pick. Play, train and grow into the ratings shown here, and past them.':'Pick who you want to hit as.';
-  $('roster').innerHTML=ROSTER.map(r=>'<button class="pc" data-id="'+r.id+'" aria-pressed="'+(r.id===selId)+'"><strong>'+esc(r.name)+'</strong><small>'+esc(r.nick)+'</small><div class="mini">'+BAT.map(([k,l])=>'<span>'+l+'</span><div class="bar"><i style="width:'+prime(r,k)+'%"></i></div>').join('')+'</div></button>').join('');
-  $('roster').querySelectorAll('.pc').forEach(b=>b.onclick=()=>{selId=b.dataset.id;$('roster').querySelectorAll('.pc').forEach(x=>x.setAttribute('aria-pressed',x===b));updSel()});
+  if(selId&&!charUnlocked(selId))selId=null;
+  $('roster').innerHTML=ROSTER.map(r=>{const ok=charUnlocked(r.id);return'<button class="pc'+(ok?'':' locked')+'" data-id="'+r.id+'" aria-pressed="'+(r.id===selId)+'" '+(ok?'':'disabled')+'><strong>'+esc(r.name)+'</strong><small>'+(ok?esc(r.nick):'Unlocks at level '+charUnlockLv(r.id))+'</small><div class="mini">'+BAT.map(([k,l])=>'<span>'+l+'</span><div class="bar"><i style="width:'+prime(r,k)+'%"></i></div>').join('')+'</div></button>'}).join('');
+  [...$('qmLevel').options].forEach(o=>{const need=PARK_UNLOCK[LEVELS[o.value].park]||1;o.disabled=profLv()<need;o.textContent=o.textContent.replace(/ \(level \d+\)$/,'')+(o.disabled?' (level '+need+')':'')});if($('qmLevel').selectedOptions[0].disabled)$('qmLevel').value='hs';
+  $('roster').querySelectorAll('.pc:not(.locked)').forEach(b=>b.onclick=()=>{selId=b.dataset.id;$('roster').querySelectorAll('.pc').forEach(x=>x.setAttribute('aria-pressed',x===b));updSel()});
   $('qmRow').hidden=mode==='career';$('qmLevelWrap').hidden=mode==='career';updSel();show('select')}
 function updSel(){$('selGo').disabled=!selId;$('selGo').textContent=selId?(selMode==='career'?'Next: position':selMode==='practice'?'Take batting practice':'Play as '+RBYID[selId].name):'Pick a player'}
 $('selBack').onclick=()=>renderTitle();
@@ -2289,13 +2416,17 @@ function promote(to,midSeason){const from=save.level;save.level=to;
 /* ================= hub ================= */
 function renderHub(){
   if(!save){renderTitle();return}
+  if(save.contractDue&&!save.retired){const n=save.contractDue;save.contractDue=null;const r=rate(save.byLevel.mlb||emptyLine()),base=(1+n*0.6)*(1+Math.max(0,r.ops-0.72)*4);
+    const long=Math.round(base*1.25*10)/10,short=Math.round(base*1.6*10)/10;
+    storyBeat(n===3?'Arbitration':'Free agency',n===3?'Time to talk money':'You’re a free agent',n===3?'Three seasons in the Bigs. The '+esc(save.org.name)+' offer a long-term extension, or you can go year to year and bet on yourself.':'Six seasons in. Teams are lining up. Take the security of a long deal, or a one-year prove-it contract at a higher salary.',
+      [['long','Long-term deal ('+money(MONEY.mlb*long)+'/yr)'],['short','Bet on myself ('+money(MONEY.mlb*short)+' this year)']]).then(v=>{save.contract=v==='long'?long:null;if(v==='short'){save.money+=MONEY.mlb*short*0.3;save.earnings+=MONEY.mlb*short*0.3}store();renderHub()});return}
   if(save.retired){renderRecords();return}
   if(save.pending){renderDecision();return}
   if(save.gi>=save.games.length){seasonEnd();return}
   const C=RBYID[save.char],si=STAGES.findIndex(s=>s[0]===stageOf(save.level));
   $('stepper').innerHTML=STAGES.map((s,i)=>'<div class="step '+(i<si?'done':i===si?'now':'')+'">'+s[1]+'</div>').join('');
   const r=rate(save.seasonLine);
-  $('playerCard').innerHTML='<div class="row between" style="align-items:flex-start"><div style="min-width:0"><p class="eyebrow">'+esc(save.pos)+(save.twoWay?' · Two-way':'')+' · Age '+save.age+'</p><h2 style="font-size:32px">'+esc(C.name)+'</h2><p class="muted">'+esc(levelName())+' · '+(save.level==='hs'?['Sophomore','Junior','Senior'][Math.min(2,save.season-1)]+' year':save.level==='college'?['Freshman','Sophomore','Junior','Senior'][Math.min(3,save.season-1)]+' season':'Season '+save.season)+'</p></div><div class="ovr"><small>OVR</small><b class="num">'+myOVR()+'</b></div></div>'+
+  $('playerCard').innerHTML='<div class="row between" style="align-items:flex-start"><div style="min-width:0"><p class="eyebrow">'+esc(save.pos)+(save.twoWay?' · Two-way':'')+' · Age '+save.age+'</p><h2 style="font-size:32px">'+esc(C.name)+'</h2>'+(save.nick?'<p class="quote">“'+esc(save.nick)+'”</p>':'')+'<p class="muted">'+esc(levelName())+' · '+(save.level==='hs'?['Sophomore','Junior','Senior'][Math.min(2,save.season-1)]+' year':save.level==='college'?['Freshman','Sophomore','Junior','Senior'][Math.min(3,save.season-1)]+' season':'Season '+save.season)+'</p></div><div class="ovr"><small>OVR</small><b class="num">'+myOVR()+'</b></div></div>'+
     '<div class="kv"><div><small>AVG / OPS</small><strong class="num">'+f3(r.avg)+' / '+f3(r.ops)+'</strong></div><div><small>HR · RBI</small><strong class="num">'+save.seasonLine.hr+' · '+save.seasonLine.rbi+'</strong></div><div><small>Team</small><strong class="num">'+save.wl[0]+'–'+save.wl[1]+'</strong></div></div>';
   const G0=save.games[save.gi],opp=save.opps[G0.o],left=save.games.length-save.gi;
   $('nextCard').innerHTML='<p class="eyebrow">Game '+(save.gi+1)+' of '+save.games.length+(save.post?' · '+esc(save.post.name):'')+'</p><h3 style="font-size:26px">'+(G0.home?'vs ':'at ')+esc(opp.name)+'</h3>'+
@@ -2326,6 +2457,7 @@ function renderHub(){
     (save.awards.length?'<ul class="notes">'+save.awards.slice(-8).map(a=>'<li class="n-ach">'+esc(a)+'</li>').join('')+'</ul>':'<p class="muted" style="font-size:14px">No awards yet.</p>')+
     '<div class="row"><button class="ghost" id="btnRecords">Records by season</button></div>';
   $('btnRecords').onclick=renderRecords;
+  $('perkCard').innerHTML=perksCard();wirePerks($('perkCard'));
   show('hub')}
 $('hubMenu').onclick=()=>renderTitle();
 const CAMPS=[{n:'Winter hitting camp',cost:8000,xp:25},{n:'Private hitting coach',cost:60000,xp:90},{n:'Elite performance lab',cost:600000,xp:320}];
@@ -2338,7 +2470,7 @@ function gameCfg(){const g=save.games[save.gi],opp=save.opps[g.o],lv=save.level,
   return{lv,home:g.home,opp:{team:opp},my:{team:save.team},me:{name:RBYID[save.char].name,id:save.char,st:save.st,pst:save.twoWay?save.st:null},myStart:!!(save.twoWay&&g.start),oppBatChar:pick(ROSTER.filter(r=>r.id!==save.char&&(!rv||r.id!==rv.id))).id,pitChar,rival:rv,keyOnly:save.keyOnly!==false,
     oppPitcher:rv?rivalPitcher(rv,lv,opp.pit):makePitcher(lv,opp.pit,pitChar)}}
 async function playCareerGame(live){
-  const cfg=gameCfg();
+  const cfg=gameCfg();ACTIVE_PERKS=(save.perks||[]).slice();
   if(live){await enterPark(cfg);cfg.live=liveAB(cfg);if(cfg.myStart)cfg.livePitch=livePitch(cfg)}
   PARK=PARKS[LEVELS[cfg.lv].park];
   const g=await playGame(cfg);
@@ -2376,7 +2508,7 @@ function afterGame(g,live,cfg,quiet){
   if(g.pit){const P=g.pit;P.g=1;save.pitSeason=addLine(save.pitSeason||{},P);save.pitCareer=addLine(save.pitCareer||{},P);xp+=Math.round((P.outs+P.k*2+(g.won&&P.outs>=15?8:0))*(live?1:0.6));
     g.pitNote='On the mound: '+ipStr(P.outs)+' IP, '+P.h+' H, '+P.r+' R, '+P.bb+' BB, '+P.k+' K'}
   if(cfg.rival){const rv=cfg.rival;rv.ab+=me.ab;rv.h+=me.h;rv.hr+=me.hr;rv.k+=me.k;rv.bb+=me.bb;g.rivalNote=me.hr?'You took '+rv.name+' deep! Head-to-head: '+h2h(rv)+'.':me.h?'You got to '+rv.name+'. Head-to-head: '+h2h(rv)+'.':rv.name+' got the better of you. Head-to-head: '+h2h(rv)+'.';if(me.h)xp+=8+me.hr*10}
-  save.xp+=xp;
+  save.xp+=xp;save.xpTotal=(save.xpTotal||0)+xp;if(live)emit({t:'game',h:me.h,rbi:me.rbi,won:g.won,pk:g.pit?g.pit.k:0});gainProf(live?15:3);
   const pay=MONEY[save.level]/GAMES[save.level]*(save.level==='mlb'?salaryMult():1);if(pay){save.money+=pay;save.earnings+=pay}
   const notes=checkMilestones(me);
   const promo=checkPromotion();
@@ -2384,7 +2516,7 @@ function afterGame(g,live,cfg,quiet){
   if(quiet){if(promo)save.flash=promo;return}
   if(g.rivalNote)notes.unshift(g.rivalNote);if(g.pitNote)notes.unshift(g.pitNote);
   showGameResult(g,xp,notes,promo,cfg)}
-function salaryMult(){const s=save.mlbSeasons;const r=rate(save.byLevel.mlb||emptyLine());return(1+s*0.6)*(1+Math.max(0,r.ops-0.72)*4)}
+function salaryMult(){if(save.contract)return save.contract;const s=save.mlbSeasons;const r=rate(save.byLevel.mlb||emptyLine());return(1+s*0.6)*(1+Math.max(0,r.ops-0.72)*4)}
 function checkMilestones(me){const n=[],c=save.career,M=save.milestones;
   const hit=(k,v,t)=>{if(c[k]>=v&&!M[k+v]){M[k+v]=1;n.push(t)}};
   hit('h',1,'First career hit!');hit('hr',1,'First career home run!');hit('hr',10,'10 career home runs');hit('hr',50,'50 career home runs');hit('hr',100,'100 career home runs');hit('h',100,'100 career hits');hit('h',500,'500 career hits');hit('h',1000,'1,000 career hits');
@@ -2395,8 +2527,11 @@ function checkPromotion(){const lv=save.level,i=LVL_ORDER.indexOf(lv);if(i<0||lv
   if(myOVR()>=LEVELS[next].bat&&r.ops>=0.85||myOVR()>=LEVELS[next].bat+6){const from=LEVELS[lv].name;save.lvlG=0;promote(next,true);
     const t=next==='mlb'?'You’re going to the Bigs! '+save.org.city+' '+save.org.name+' call you up from '+from+'.':'Promoted to '+LEVELS[next].name+'! Pack your bags for the '+save.team.name+'.';save.awards.push((next==='mlb'?'MLB debut':'Promoted to '+LEVELS[next].name)+' (age '+save.age+')');return t}
   return null}
-function showGameResult(g,xp,notes,promo,cfg){
+async function showGameResult(g,xp,notes,promo,cfg){
   const me=g.me;
+  if(promo&&/Bigs/.test(promo))await storyBeat('Your phone is ringing','The call','It’s the manager. “Pack your bags, kid. You’re in the lineup tomorrow night in '+esc(save.org.city)+'.”<br><br>Your first big league game is next.',[['ok','I’m ready']]);
+  if(!save.nick&&save.career.hr>=10){const opts=NICKS.slice().sort(()=>Math.random()-0.5).slice(0,3);const v=await storyBeat('The fans have spoken','A nickname','After '+save.career.hr+' home runs the fans have a few names for you. Which one sticks?',opts.map(n=>[n,'“'+n+'”']));save.nick=v;store()}
+  if(save.level==='mlb'&&!save.asDone&&save.gi===Math.floor(save.games.length/2)){save.asDone=true;const r=rate(save.seasonLine);if(r.ops>=0.85&&save.seasonLine.pa>=30){save.awards.push('All-Star selection · season '+(save.mlbSeasons+1));store();await storyBeat('Midseason','All-Star!','You hit '+f3(r.avg)+' with '+save.seasonLine.hr+' home runs in the first half. The fans voted you in.',[['ok','Let’s go']])}}
   $('resBanner').textContent=g.won?'Win':'Loss';$('resBanner').className='banner '+(g.won?'w':'l');
   $('resScore').textContent=g.teams[0].short+' '+g.score[0]+' · '+g.teams[1].short+' '+g.score[1];
   $('resLine').innerHTML=lineScore(g);
@@ -2430,7 +2565,7 @@ function liveAB(cfg){let lastLog=0;
     ABQ.quit=()=>{A=null;$('between').hidden=true;res({quit:true})};
     const go=async()=>{$('between').hidden=true;if(G&&G.role==='pitch')await enterPark(cfg,'bat',true);
       startPA({lv:cfg.lv,st:cfg.me.st,pitcher:ctx.pitcher,sit:ctx.sit,teams:ctx.teams,ab:ctx.ab,errRate:LEVELS[cfg.lv].err,arm:LEVELS[cfg.lv].arm,
-        intro:'At-bat '+ctx.ab+' · '+(ctx.sit.outs?ctx.sit.outs+' out'+(ctx.sit.outs>1?'s':''):'No outs')+(runnersText(ctx.sit.bases)?' · '+runnersText(ctx.sit.bases):''),
+        intro:(save&&save.nick?'Now batting: “'+save.nick+'” · ':'')+'At-bat '+ctx.ab+' · '+(ctx.sit.outs?ctx.sit.outs+' out'+(ctx.sit.outs>1?'s':''):'No outs')+(runnersText(ctx.sit.bases)?' · '+runnersText(ctx.sit.bases):''),
         onDone:r=>{lastLog=g.log.length+1;res(r)}})};
     betweenPanel(g,news,ctx,go,()=>{$('between').hidden=true;g.simRest=true;res(simMe())})});}
 const ABQ={quit:null};
@@ -2457,7 +2592,7 @@ function seasonEnd(){
   if(lv==='hs'){if(r.ops>=1.0&&pa>=25)awards.push('All-State ('+save.age+')');if(save.wl[0]>=save.wl[1]+4){awards.push('Conference champions');save.titles++}}
   if(lv==='college'){if(r.ops>=0.95&&pa>=35)awards.push('All-American');if(r.ops>=1.05&&L.hr>=6)awards.push('College Player of the Year');if(save.wl[0]>=12){awards.push('National tournament bid');}}
   if(LVL_ORDER.includes(lv)&&lv!=='mlb'){if(r.ops>=0.9&&pa>=40)awards.push(LEVELS[lv].name+' All-Star')}
-  if(lv==='mlb'){save.mlbSeasons++;if(r.ops>=0.85&&pa>=50)awards.push('All-Star');if(r.ops>=0.9&&pa>=70)awards.push('Silver Slugger');if(r.ops>=1.08&&L.hr>=12&&pa>=90)awards.push('MVP');if(save.mlbSeasons===1&&r.ops>=0.8&&pa>=50)awards.push('Rookie of the Year');
+  if(lv==='mlb'){save.mlbSeasons++;save.asDone=false;if(save.mlbSeasons===3||save.mlbSeasons===6)save.contractDue=save.mlbSeasons;if(r.ops>=0.85&&pa>=50)awards.push('All-Star');if(r.ops>=0.9&&pa>=70)awards.push('Silver Slugger');if(r.ops>=1.08&&L.hr>=12&&pa>=90)awards.push('MVP');if(save.mlbSeasons===1&&r.ops>=0.8&&pa>=50)awards.push('Rookie of the Year');
     if(save.wl[0]>=19){awards.push('Postseason');if(Math.random()<0.3+(save.wl[0]-19)*0.05){awards.push('Champions!');save.titles++}}}
   awards.forEach(a=>save.awards.push(a+' · '+(lv==='mlb'?'season '+save.mlbSeasons:LEVELS[lv].name+' '+save.age)));
   save.history.push({year:save.year,age:save.age,lv:save.lvlStart===lv?lv:save.lvlStart+'→'+lv,team:save.team.name,line:Object.assign({},L),wl:save.wl.slice(),awards});
@@ -2482,7 +2617,9 @@ function seasonEnd(){
   $('seasonBtns').innerHTML='<button class="go" id="snGo">'+(save.pending?'Continue':'Next season')+'</button>'+(save.retireAsk?'<button class="ghost" id="snRetire">Retire</button>':'');
   $('snGo').onclick=()=>renderHub();if($('snRetire'))$('snRetire').onclick=retire;
   show('season')}
-function retire(){save.retired=true;store();renderRecords()}
+async function retire(){save.retired=true;store();const h=hofScore();
+  await storyBeat('Cooperstown calling?',h>=300?'Hall of Famer':h>=180?'On the ballot':'A fine career',h>=300?'First ballot. Your plaque reads: '+esc(RBYID[save.char].name)+(save.nick?' “'+esc(save.nick)+'”':'')+', '+save.career.h+' hits, '+save.career.hr+' home runs.':h>=180?'The writers will debate your case for years. '+save.career.h+' hits, '+save.career.hr+' home runs.':'You gave it everything: '+save.career.h+' hits and '+save.career.hr+' home runs.',[['ok','Thanks for the memories']]);
+  renderRecords()}
 function draftScore(){const r=rate(save.seasonLine.pa?save.seasonLine:save.history.length?save.history[save.history.length-1].line:emptyLine());return myOVR()+clamp((r.ops-0.8)*20,-6,8)+rnd(-2,2)}
 function draftResult(){const s=draftScore(),age=save.age;let round,bonus;
   if(s>=72){round=1;bonus=rnd(2.5e6,7e6)}else if(s>=66){round=rnd(1,2)<1.5?1:2;bonus=rnd(1.1e6,2.5e6)}else if(s>=61){round=Math.round(rnd(3,5));bonus=rnd(3e5,8e5)}else if(s>=56){round=Math.round(rnd(6,10));bonus=rnd(1.25e5,2.5e5)}else if(s>=51){round=Math.round(rnd(11,20));bonus=rnd(5e4,1.25e5)}else return null;
@@ -2518,13 +2655,13 @@ function renderRecords(){
 function hofScore(){const c=save.career;return Math.round(c.h*0.12+c.hr*0.8+save.awards.filter(a=>/MVP/.test(a)).length*40+save.awards.filter(a=>/^All-Star|Silver/.test(a)).length*10+save.titles*15)}
 
 /* ================= batting practice and quick games ================= */
-async function startPractice(id,st,lv){
+async function startPractice(id,st,lv){ACTIVE_PERKS=[];
   const pitchers=['granny','ch39','ch28'];const pid=pitchers.find(p=>p!==id)||'ch28';
   await setupScene({park:LEVELS[lv].park,batterId:id,pitcherId:pid,homeColor:0x2E5FA8,defHue:200,myHue:0});sndResume();
   const L=LEVELS[lv],pi={name:RBYID[pid].name,velo:Math.round((L.velo[0]+L.velo[1])/2),control:70,stuff:55,ovr:50,mix:L.mix};
   A=null;startPA({lv,st,pitcher:pi,practice:true,intro:'Tap when the ring closes on your yellow circle.',teams:['',''],onDone:()=>{}});
   ABQ.quit=null}
-async function quickGame(id,st,lv){
+async function quickGame(id,st,lv){ACTIVE_PERKS=[];
   const t1=makeTeam('Home Nine','HOM',lv,pick(HUES)),t2=makeTeam('Visitors','VIS',lv,pick(HUES));
   const pitChar=pick(ROSTER.filter(r=>r.id!==id)).id;
   const cfg={lv,home:true,opp:{team:t2},my:{team:t1},me:{name:RBYID[id].name,id,st},pitChar,oppPitcher:makePitcher(lv,t2.pit,pitChar)};

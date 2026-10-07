@@ -25,6 +25,10 @@ Built on the same characters, rig and app shell as [Tennis Go](https://github.co
 | `src/park.js` | Ballparks by level (high school, college, minors, the Bigs): field, wall, stands, crowd. Inserted at `/*@PARK*/` |
 | `src/play.js` | Ball flight physics (drag, lift, bounces, the wall) and how the defence turns a batted ball into an out or a hit, plus baserunning. Pure JS, testable in Node. Inserted at `/*@PLAY*/` |
 | `src/sim.js` | Levels, teams, pitchers, simulated plate appearances and whole games around your live at-bats. Inserted at `/*@SIM*/` |
+| `src/feel.js` | Settings, tap calibration, graphics quality, timing readout, pitch spin and tracer, sitting on a zone, home run replays. Inserted at `/*@FEEL*/` |
+| `src/meta.js` | Profile levels, perks, locker cosmetics, daily challenges, story beats, unlocks, clip recording. Inserted at `/*@META*/` |
+| `src/modes.js` | Home Run Derby and Home Run Pinball. Inserted at `/*@MODES*/` |
+| `src/pitch.js` | Pitching, fielding moments, steals and stretching singles. Inserted at `/*@PITCH*/` |
 | `src/career.js` | Career flow: seasons, training, promotions, the draft, college, awards, records, save and backup codes, batting practice, quick games. Inserted at `/*@CAREER*/` |
 | `src/fx.js`, `src/audio.js` | Hit-stop, bursts, ball trail, haptics; synthesised bat, glove and crowd sounds |
 | `src/vendor/three.js` | three.js r170 |
@@ -41,6 +45,12 @@ python3 tools/build.py
 
 Then commit `src/` changes together with the rebuilt `index.html`.
 
-## Coming next
+## What's in it
 
-Pitching for two-way players, fielding and baserunning control, more swing and stance animation polish.
+- **Hitting:** timing ring, Auto / Lock-on / Manual aim, Timing and Contact grades, Contact / Normal / Power / Bunt, check swings, sit on a zone, Turbo and Big Blast meters
+- **Pitching (two-way players):** pick a pitch, aim, stop the meter in the green
+- **Defense and baserunning:** DIVE! / LEAP! fielding moments, steals, stretching singles
+- **Career:** high school → college or the draft → Rookie ball → the Bigs, key-moment games, rival pitchers, perks, story beats (the call-up, nicknames, contracts, All-Star, Hall of Fame)
+- **Modes:** batting practice, quick game, Home Run Derby, Home Run Pinball
+- **Profile:** levels, daily challenges and streaks, unlockable players, parks and locker cosmetics, shareable home run clips
+- **Settings:** touch-delay calibration, pitch speed, graphics, camera, stance, replays, timing readout

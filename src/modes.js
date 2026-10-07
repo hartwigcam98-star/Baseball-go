@@ -7,7 +7,7 @@ const BEST_KEY='bg-best';
 function bests(){try{return JSON.parse(localStorage.getItem(BEST_KEY))||{}}catch(e){return{}}}
 function today(){const d=new Date();return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate()}
 let MD=null;// the running mode
-async function startMode(mode,id,st,lv){
+async function startMode(mode,id,st,lv){ACTIVE_PERKS=[];
   const pid=id==='granny'?'ch39':'granny';
   await setupScene({park:LEVELS[lv].park,batterId:id,pitcherId:pid,homeColor:0x2E5FA8,defHue:200,myHue:0});sndResume();
   MD={mode,lv,id,st,score:0,outs:0,swings:0,pitchN:0,dist:0,targets:[]};
@@ -42,7 +42,7 @@ function renderMode(){if(!MD)return;const B=bests()[MD.mode]||0;
   $('bug').innerHTML='<div class="bl"><span class="eyebrow">'+MODES[MD.mode].n+'</span><span class="tm">Score <b class="num">'+MD.score+'</b></span></div><div class="bm"><span class="num">'+(MD.mode==='derby'?MD.outs+'/10 outs':MD.swings+'/20')+'</span><span class="muted" style="font-size:12px">Best '+B+'</span></div>'}
 function endMode(){if(!MD||!A)return;const b=bests(),m=MD.mode,best=b[m]||0,dk=m+'_'+today(),day=b[dk]||0,isBest=MD.score>best;
   if(isBest)b[m]=MD.score;if(MD.score>day)b[dk]=MD.score;try{localStorage.setItem(BEST_KEY,JSON.stringify(b))}catch(e){}
-  A.state='over';if(typeof onModeScore==='function')onModeScore(m,MD.score);
+  A.state='over';emit({t:'mode',m,score:MD.score});gainProf(Math.round(MD.score*(m==='derby'?4:0.05)));
   const p=$('modeEnd');p.hidden=false;$('meTitle').textContent=MODES[m].n;
   $('meBody').innerHTML='<p class="score-line num">'+MD.score+'</p><p class="muted">'+(m==='derby'?'home runs'+(MD.dist?' · '+MD.dist.toLocaleString()+' total feet':''):'points')+'</p>'+(isBest?'<p class="banner w">New personal best!</p>':'<p class="muted">Best: '+best+' · Today: '+Math.max(day,MD.score)+'</p>');
   $('meAgain').onclick=()=>{p.hidden=true;clearTargets();const s=MD;MD=null;startMode(s.mode,s.id,s.st,s.lv)};

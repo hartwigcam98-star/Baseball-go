@@ -251,6 +251,12 @@ textarea{width:100%;background:var(--panel-2);border:1px solid var(--line);borde
 #replayTag{position:absolute;left:12px;top:calc(env(safe-area-inset-top,0px) + 108px);display:flex;align-items:center;gap:8px;background:rgba(5,12,20,.86);border:1px solid var(--line);border-radius:10px;padding:6px 12px;font-family:var(--display);font-weight:800;font-size:18px;letter-spacing:.12em;text-transform:uppercase;pointer-events:none}
 #replayTag i{width:10px;height:10px;border-radius:50%;background:#F28A78;animation:blink 1s steps(2) infinite}#replayTag small{font-family:var(--body);font-weight:500;font-size:12px;letter-spacing:0;text-transform:none;color:var(--muted)}
 #ab.mode #meters{display:none}
+#locker,#story{position:fixed;inset:0;z-index:65;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(5,12,20,.85)}#locker .card,#story .card{max-width:460px;width:100%;max-height:calc(100vh - 32px);overflow:auto}
+#story .card{border-color:var(--ball);gap:14px}#story h2{font-size:34px}
+.lk-p[aria-pressed=true]{border-color:var(--ball);box-shadow:0 0 0 1px var(--ball) inset}
+#toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 90px);transform:translate(-50%,20px);z-index:80;max-width:min(420px,90vw);padding:10px 16px;border-radius:12px;background:#1E3A2A;border:1px solid var(--win);color:var(--chalk);font-weight:600;font-size:14px;opacity:0;pointer-events:none;transition:opacity .25s,transform .25s}
+#toast.on{opacity:1;transform:translate(-50%,0)}
+#clipBtn{position:absolute;right:12px;top:calc(env(safe-area-inset-top,0px) + 108px);z-index:6;padding:8px 14px;background:rgba(5,12,20,.86);border-color:var(--ball);color:var(--ball);font-family:var(--display);letter-spacing:.08em;text-transform:uppercase}
 #pitchBar{display:none;gap:6px;flex-wrap:wrap;pointer-events:auto}#ab.pitching #pitchBar{display:flex}#ab.pitching #stype,#ab.pitching #blastBtn,#ab.pitching #aimBtn{display:none}
 #pitchBar button{padding:6px 12px;font-size:14px;background:rgba(5,12,20,.82);font-family:var(--display);letter-spacing:.06em;text-transform:uppercase;border-color:var(--pc)}#pitchBar button[aria-pressed=true]{background:var(--pc);color:#10202B}
 #pmeter{position:absolute;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top,0px) + 150px);width:min(300px,80vw);height:22px;border-radius:11px;background:rgba(5,12,20,.88);border:2px solid var(--line);overflow:hidden;pointer-events:none}

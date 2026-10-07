@@ -24,7 +24,8 @@ function fxTick(dt){
   const tr=FX.trail,live=A&&(A.state==='pitch'||A.state==='play'||A.state==='replay');
   if(W3.ball.visible&&live){const p=W3.ball.position,last=FX.tp[FX.tp.length-1];if(!last||last.distanceToSquared(p)>0.01){FX.tp.push(p.clone());if(FX.tp.length>16)FX.tp.shift()}}else FX.tp=[];
   const n=FX.tp.length,mx=new T.Matrix4(),c=new T.Color(),base=A&&(A.state==='play'||A.state==='replay')?new T.Color(evColor(A.contact&&A.contact.ev)):A&&A.pitch&&A.read?new T.Color(PT[A.pitch.type].c):new T.Color(0xFFFFFF);
-  for(let i=0;i<n;i++){const f=(i+1)/n,s=0.3+0.7*f;mx.makeScale(s,s,s).setPosition(FX.tp[i]);tr.setMatrixAt(i,mx);c.copy(base).multiplyScalar(f*f*0.55);tr.setColorAt(i,c)}
+  const sty=A&&(A.state==='play'||A.state==='replay')?PROF.eq.trail:'heat';if(sty==='ice')base.setHex(0x7FD8FF);
+  for(let i=0;i<n;i++){const f=(i+1)/n,s=0.3+0.7*f;mx.makeScale(s,s,s).setPosition(FX.tp[i]);tr.setMatrixAt(i,mx);if(sty==='rainbow')c.setHSL((i/n+GT/2000)%1,1,0.55);else c.copy(base);c.multiplyScalar(f*f*0.55*(sty==='rainbow'?1.6:1));tr.setColorAt(i,c)}
   tr.count=n;tr.instanceMatrix.needsUpdate=true;if(tr.instanceColor)tr.instanceColor.needsUpdate=true;
   if(FX.shake>0)FX.shake-=dt}
 function shakeOffset(){if(FX.shake<=0)return null;const a=FX.shakeAmp*(FX.shake/0.2);return new T.Vector3((Math.random()-0.5)*a,(Math.random()-0.5)*a,(Math.random()-0.5)*a)}

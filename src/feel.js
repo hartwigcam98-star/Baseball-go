@@ -84,9 +84,9 @@ function startReplay(){if(!A||!A.B||!OPT.replays)return false;A.replay={t0:now()
   resetPositions();placeRunners(A.cfg.sit?A.cfg.sit.bases:null);if(G.dropped){W3.scene.remove(G.dropped);G.dropped=null}
   // replay the play from contact: the batter's swing, the flight, the trot
   A.script=null;const B=A.B,R=A.R;planPlay(B,R);A.tP=now()+700;const b=G.batter;b.pose=null;b.startSwing('sw',0);b.swing.t=-0.7+SWT;
-  $('replayTag').hidden=false;$('ab').classList.add('rp');slowMo(true,0.55);W3.pci.visible=false;W3.zone.visible=false;FX.tp=[];return true}
+  $('replayTag').hidden=false;$('ab').classList.add('rp');clipStart();slowMo(true,0.55);W3.pci.visible=false;W3.zone.visible=false;FX.tp=[];return true}
 function tickReplay(dt){const t=(now()-A.tP)/1000;if(t<0){const hp=pitchPos(A.pitch,pitchTimeAtZ(A.pitch,-0.28)+t);W3.ball.position.copy(hp);return false}
-  const done=tickPlay(dt);if(done||t>6.5){$('replayTag').hidden=true;$('ab').classList.remove('rp');slowMo(false);return true}return false}
+  const done=tickPlay(dt);if(done||t>6.5){clipStop();$('replayTag').hidden=true;$('ab').classList.remove('rp');slowMo(false);return true}return false}
 function replayCam(){const bp=W3.ball.position,far=Math.hypot(bp.x,bp.z),t=(now()-A.tP)/1000;
   // low and wide down the first-base line at contact, then a chase view from behind the batter
   if(t<0.5)return[new T.Vector3(6.5,1.1,-3.5),new T.Vector3(-0.8,1.0,0)];

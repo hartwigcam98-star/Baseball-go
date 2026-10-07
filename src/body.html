@@ -9,8 +9,9 @@
       <span class="chip" id="careerChip">No save yet</span>
       <div class="row"><button class="go" id="btnContinue" hidden>Continue career</button><button id="btnNew">New career</button><button id="btnNewConfirm" hidden>Start over? Tap to confirm</button></div>
       <div class="row"><button class="ghost" id="btnPractice">Batting practice</button><button class="ghost" id="btnQuick">Quick game</button></div>
-      <div class="row"><button class="ghost" id="btnDerby">Home Run Derby</button><button class="ghost" id="btnPinball">HR Pinball</button><button class="ghost" id="btnSettings">Settings</button></div>
+      <div class="row"><button class="ghost" id="btnDerby">Home Run Derby</button><button class="ghost" id="btnPinball">HR Pinball</button><button class="ghost" id="btnSettings">Settings</button><button class="ghost" id="btnLocker">Locker</button></div>
     </div>
+    <div class="card" id="todayCard"></div>
     <div class="card">
       <h3>How to hit</h3>
       <div class="how">
@@ -60,6 +61,7 @@
     <div class="card" id="nextCard"></div>
     <div class="card" id="statsCard"></div>
     <div class="card" id="trainCard"></div>
+    <div class="card" id="perkCard"></div>
     <div class="card cal" id="schedCard"></div>
     <div class="card" id="careerCard"></div>
   </div>
@@ -108,6 +110,7 @@
   <div id="pmeter" hidden><div id="pmGreen"></div><div id="pmRed"></div><div id="pmNeedle"></div></div>
   <button id="qte" hidden>DIVE!</button>
   <button id="stealBtn" hidden>Steal 2nd</button>
+  <button id="clipBtn" hidden>Share clip</button>
   <div id="fire" hidden>On fire</div>
   <div id="call"></div>
   <div id="grades"></div>
@@ -139,3 +142,6 @@
 <div id="settings" hidden><div class="card"><div class="row between"><h3>Settings</h3><button class="go" id="setDone">Done</button></div><div id="setBody"></div></div></div>
 <div id="calib" hidden><div id="calDot"></div><p id="calMsg"></p><button class="ghost" id="calCancel">Cancel</button></div>
 <div id="modeEnd" hidden><div class="card"><p class="eyebrow" id="meTitle"></p><div id="meBody"></div><div class="row"><button class="go" id="meAgain" style="flex:1">Go again</button><button class="ghost" id="meQuit">Menu</button></div></div></div>
+<div id="locker" hidden><div class="card"><div class="row between"><h3>Locker</h3><button class="go" id="lockDone">Done</button></div><div id="lockBody"></div></div></div>
+<div id="story" hidden><div class="card"><p class="eyebrow" id="stEye"></p><h2 id="stTitle"></h2><div id="stText"></div><div class="row" id="stBtns"></div></div></div>
+<div id="toast"></div>

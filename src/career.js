@@ -52,7 +52,8 @@ function addLine(a,b){for(const k in b)a[k]=(a[k]||0)+b[k];return a}
 function renderTitle(){
   const has=!!save&&!save.retired;$('btnContinue').hidden=!has;$('btnNewConfirm').hidden=true;$('btnNew').hidden=false;
   $('careerChip').textContent=save?(RBYID[save.char].name+' · '+(save.retired?'Retired':levelName())+' · Age '+save.age):'No save yet';
-  $('btnNew').className=has?'':'go';renderSaveCard();show('title')}
+  $('btnNew').className=has?'':'go';renderSaveCard();$('todayCard').innerHTML=todayCard();show('title')}
+$('btnLocker').onclick=()=>openLocker();
 function levelName(){return save.level==='hs'?'High school':save.level==='college'?save.college.name:(save.org?save.org.city+' '+AFFIL[save.level]+(save.level==='mlb'?save.org.name:' '+save.team.name).replace(/^ /,''):LEVELS[save.level].name)}
 $('btnContinue').onclick=()=>renderHub();
 $('btnNew').onclick=()=>{if(save&&!save.retired){$('btnNew').hidden=true;$('btnNewConfirm').hidden=false}else openSelect('career')};
@@ -89,8 +90,10 @@ function openSelect(mode){
   selMode=mode;selId=mode!=='career'&&save?save.char:null;
   $('selEyebrow').textContent=mode==='career'?'New career':mode==='practice'?'Batting practice':mode==='derby'?'Home Run Derby':mode==='pinball'?'Home Run Pinball':'Quick game';
   $('selIntro').textContent=mode==='career'?'Every career starts as a 16-year-old high school sophomore with the same total ratings, shaped like the player you pick. Play, train and grow into the ratings shown here, and past them.':'Pick who you want to hit as.';
-  $('roster').innerHTML=ROSTER.map(r=>'<button class="pc" data-id="'+r.id+'" aria-pressed="'+(r.id===selId)+'"><strong>'+esc(r.name)+'</strong><small>'+esc(r.nick)+'</small><div class="mini">'+BAT.map(([k,l])=>'<span>'+l+'</span><div class="bar"><i style="width:'+prime(r,k)+'%"></i></div>').join('')+'</div></button>').join('');
-  $('roster').querySelectorAll('.pc').forEach(b=>b.onclick=()=>{selId=b.dataset.id;$('roster').querySelectorAll('.pc').forEach(x=>x.setAttribute('aria-pressed',x===b));updSel()});
+  if(selId&&!charUnlocked(selId))selId=null;
+  $('roster').innerHTML=ROSTER.map(r=>{const ok=charUnlocked(r.id);return'<button class="pc'+(ok?'':' locked')+'" data-id="'+r.id+'" aria-pressed="'+(r.id===selId)+'" '+(ok?'':'disabled')+'><strong>'+esc(r.name)+'</strong><small>'+(ok?esc(r.nick):'Unlocks at level '+charUnlockLv(r.id))+'</small><div class="mini">'+BAT.map(([k,l])=>'<span>'+l+'</span><div class="bar"><i style="width:'+prime(r,k)+'%"></i></div>').join('')+'</div></button>'}).join('');
+  [...$('qmLevel').options].forEach(o=>{const need=PARK_UNLOCK[LEVELS[o.value].park]||1;o.disabled=profLv()<need;o.textContent=o.textContent.replace(/ \(level \d+\)$/,'')+(o.disabled?' (level '+need+')':'')});if($('qmLevel').selectedOptions[0].disabled)$('qmLevel').value='hs';
+  $('roster').querySelectorAll('.pc:not(.locked)').forEach(b=>b.onclick=()=>{selId=b.dataset.id;$('roster').querySelectorAll('.pc').forEach(x=>x.setAttribute('aria-pressed',x===b));updSel()});
   $('qmRow').hidden=mode==='career';$('qmLevelWrap').hidden=mode==='career';updSel();show('select')}
 function updSel(){$('selGo').disabled=!selId;$('selGo').textContent=selId?(selMode==='career'?'Next: position':selMode==='practice'?'Take batting practice':'Play as '+RBYID[selId].name):'Pick a player'}
 $('selBack').onclick=()=>renderTitle();
@@ -136,13 +139,17 @@ function promote(to,midSeason){const from=save.level;save.level=to;
 /* ================= hub ================= */
 function renderHub(){
   if(!save){renderTitle();return}
+  if(save.contractDue&&!save.retired){const n=save.contractDue;save.contractDue=null;const r=rate(save.byLevel.mlb||emptyLine()),base=(1+n*0.6)*(1+Math.max(0,r.ops-0.72)*4);
+    const long=Math.round(base*1.25*10)/10,short=Math.round(base*1.6*10)/10;
+    storyBeat(n===3?'Arbitration':'Free agency',n===3?'Time to talk money':'You’re a free agent',n===3?'Three seasons in the Bigs. The '+esc(save.org.name)+' offer a long-term extension, or you can go year to year and bet on yourself.':'Six seasons in. Teams are lining up. Take the security of a long deal, or a one-year prove-it contract at a higher salary.',
+      [['long','Long-term deal ('+money(MONEY.mlb*long)+'/yr)'],['short','Bet on myself ('+money(MONEY.mlb*short)+' this year)']]).then(v=>{save.contract=v==='long'?long:null;if(v==='short'){save.money+=MONEY.mlb*short*0.3;save.earnings+=MONEY.mlb*short*0.3}store();renderHub()});return}
   if(save.retired){renderRecords();return}
   if(save.pending){renderDecision();return}
   if(save.gi>=save.games.length){seasonEnd();return}
   const C=RBYID[save.char],si=STAGES.findIndex(s=>s[0]===stageOf(save.level));
   $('stepper').innerHTML=STAGES.map((s,i)=>'<div class="step '+(i<si?'done':i===si?'now':'')+'">'+s[1]+'</div>').join('');
   const r=rate(save.seasonLine);
-  $('playerCard').innerHTML='<div class="row between" style="align-items:flex-start"><div style="min-width:0"><p class="eyebrow">'+esc(save.pos)+(save.twoWay?' · Two-way':'')+' · Age '+save.age+'</p><h2 style="font-size:32px">'+esc(C.name)+'</h2><p class="muted">'+esc(levelName())+' · '+(save.level==='hs'?['Sophomore','Junior','Senior'][Math.min(2,save.season-1)]+' year':save.level==='college'?['Freshman','Sophomore','Junior','Senior'][Math.min(3,save.season-1)]+' season':'Season '+save.season)+'</p></div><div class="ovr"><small>OVR</small><b class="num">'+myOVR()+'</b></div></div>'+
+  $('playerCard').innerHTML='<div class="row between" style="align-items:flex-start"><div style="min-width:0"><p class="eyebrow">'+esc(save.pos)+(save.twoWay?' · Two-way':'')+' · Age '+save.age+'</p><h2 style="font-size:32px">'+esc(C.name)+'</h2>'+(save.nick?'<p class="quote">“'+esc(save.nick)+'”</p>':'')+'<p class="muted">'+esc(levelName())+' · '+(save.level==='hs'?['Sophomore','Junior','Senior'][Math.min(2,save.season-1)]+' year':save.level==='college'?['Freshman','Sophomore','Junior','Senior'][Math.min(3,save.season-1)]+' season':'Season '+save.season)+'</p></div><div class="ovr"><small>OVR</small><b class="num">'+myOVR()+'</b></div></div>'+
     '<div class="kv"><div><small>AVG / OPS</small><strong class="num">'+f3(r.avg)+' / '+f3(r.ops)+'</strong></div><div><small>HR · RBI</small><strong class="num">'+save.seasonLine.hr+' · '+save.seasonLine.rbi+'</strong></div><div><small>Team</small><strong class="num">'+save.wl[0]+'–'+save.wl[1]+'</strong></div></div>';
   const G0=save.games[save.gi],opp=save.opps[G0.o],left=save.games.length-save.gi;
   $('nextCard').innerHTML='<p class="eyebrow">Game '+(save.gi+1)+' of '+save.games.length+(save.post?' · '+esc(save.post.name):'')+'</p><h3 style="font-size:26px">'+(G0.home?'vs ':'at ')+esc(opp.name)+'</h3>'+
@@ -173,6 +180,7 @@ function renderHub(){
     (save.awards.length?'<ul class="notes">'+save.awards.slice(-8).map(a=>'<li class="n-ach">'+esc(a)+'</li>').join('')+'</ul>':'<p class="muted" style="font-size:14px">No awards yet.</p>')+
     '<div class="row"><button class="ghost" id="btnRecords">Records by season</button></div>';
   $('btnRecords').onclick=renderRecords;
+  $('perkCard').innerHTML=perksCard();wirePerks($('perkCard'));
   show('hub')}
 $('hubMenu').onclick=()=>renderTitle();
 const CAMPS=[{n:'Winter hitting camp',cost:8000,xp:25},{n:'Private hitting coach',cost:60000,xp:90},{n:'Elite performance lab',cost:600000,xp:320}];
@@ -185,7 +193,7 @@ function gameCfg(){const g=save.games[save.gi],opp=save.opps[g.o],lv=save.level,
   return{lv,home:g.home,opp:{team:opp},my:{team:save.team},me:{name:RBYID[save.char].name,id:save.char,st:save.st,pst:save.twoWay?save.st:null},myStart:!!(save.twoWay&&g.start),oppBatChar:pick(ROSTER.filter(r=>r.id!==save.char&&(!rv||r.id!==rv.id))).id,pitChar,rival:rv,keyOnly:save.keyOnly!==false,
     oppPitcher:rv?rivalPitcher(rv,lv,opp.pit):makePitcher(lv,opp.pit,pitChar)}}
 async function playCareerGame(live){
-  const cfg=gameCfg();
+  const cfg=gameCfg();ACTIVE_PERKS=(save.perks||[]).slice();
   if(live){await enterPark(cfg);cfg.live=liveAB(cfg);if(cfg.myStart)cfg.livePitch=livePitch(cfg)}
   PARK=PARKS[LEVELS[cfg.lv].park];
   const g=await playGame(cfg);
@@ -223,7 +231,7 @@ function afterGame(g,live,cfg,quiet){
   if(g.pit){const P=g.pit;P.g=1;save.pitSeason=addLine(save.pitSeason||{},P);save.pitCareer=addLine(save.pitCareer||{},P);xp+=Math.round((P.outs+P.k*2+(g.won&&P.outs>=15?8:0))*(live?1:0.6));
     g.pitNote='On the mound: '+ipStr(P.outs)+' IP, '+P.h+' H, '+P.r+' R, '+P.bb+' BB, '+P.k+' K'}
   if(cfg.rival){const rv=cfg.rival;rv.ab+=me.ab;rv.h+=me.h;rv.hr+=me.hr;rv.k+=me.k;rv.bb+=me.bb;g.rivalNote=me.hr?'You took '+rv.name+' deep! Head-to-head: '+h2h(rv)+'.':me.h?'You got to '+rv.name+'. Head-to-head: '+h2h(rv)+'.':rv.name+' got the better of you. Head-to-head: '+h2h(rv)+'.';if(me.h)xp+=8+me.hr*10}
-  save.xp+=xp;
+  save.xp+=xp;save.xpTotal=(save.xpTotal||0)+xp;if(live)emit({t:'game',h:me.h,rbi:me.rbi,won:g.won,pk:g.pit?g.pit.k:0});gainProf(live?15:3);
   const pay=MONEY[save.level]/GAMES[save.level]*(save.level==='mlb'?salaryMult():1);if(pay){save.money+=pay;save.earnings+=pay}
   const notes=checkMilestones(me);
   const promo=checkPromotion();
@@ -231,7 +239,7 @@ function afterGame(g,live,cfg,quiet){
   if(quiet){if(promo)save.flash=promo;return}
   if(g.rivalNote)notes.unshift(g.rivalNote);if(g.pitNote)notes.unshift(g.pitNote);
   showGameResult(g,xp,notes,promo,cfg)}
-function salaryMult(){const s=save.mlbSeasons;const r=rate(save.byLevel.mlb||emptyLine());return(1+s*0.6)*(1+Math.max(0,r.ops-0.72)*4)}
+function salaryMult(){if(save.contract)return save.contract;const s=save.mlbSeasons;const r=rate(save.byLevel.mlb||emptyLine());return(1+s*0.6)*(1+Math.max(0,r.ops-0.72)*4)}
 function checkMilestones(me){const n=[],c=save.career,M=save.milestones;
   const hit=(k,v,t)=>{if(c[k]>=v&&!M[k+v]){M[k+v]=1;n.push(t)}};
   hit('h',1,'First career hit!');hit('hr',1,'First career home run!');hit('hr',10,'10 career home runs');hit('hr',50,'50 career home runs');hit('hr',100,'100 career home runs');hit('h',100,'100 career hits');hit('h',500,'500 career hits');hit('h',1000,'1,000 career hits');
@@ -242,8 +250,11 @@ function checkPromotion(){const lv=save.level,i=LVL_ORDER.indexOf(lv);if(i<0||lv
   if(myOVR()>=LEVELS[next].bat&&r.ops>=0.85||myOVR()>=LEVELS[next].bat+6){const from=LEVELS[lv].name;save.lvlG=0;promote(next,true);
     const t=next==='mlb'?'You’re going to the Bigs! '+save.org.city+' '+save.org.name+' call you up from '+from+'.':'Promoted to '+LEVELS[next].name+'! Pack your bags for the '+save.team.name+'.';save.awards.push((next==='mlb'?'MLB debut':'Promoted to '+LEVELS[next].name)+' (age '+save.age+')');return t}
   return null}
-function showGameResult(g,xp,notes,promo,cfg){
+async function showGameResult(g,xp,notes,promo,cfg){
   const me=g.me;
+  if(promo&&/Bigs/.test(promo))await storyBeat('Your phone is ringing','The call','It’s the manager. “Pack your bags, kid. You’re in the lineup tomorrow night in '+esc(save.org.city)+'.”<br><br>Your first big league game is next.',[['ok','I’m ready']]);
+  if(!save.nick&&save.career.hr>=10){const opts=NICKS.slice().sort(()=>Math.random()-0.5).slice(0,3);const v=await storyBeat('The fans have spoken','A nickname','After '+save.career.hr+' home runs the fans have a few names for you. Which one sticks?',opts.map(n=>[n,'“'+n+'”']));save.nick=v;store()}
+  if(save.level==='mlb'&&!save.asDone&&save.gi===Math.floor(save.games.length/2)){save.asDone=true;const r=rate(save.seasonLine);if(r.ops>=0.85&&save.seasonLine.pa>=30){save.awards.push('All-Star selection · season '+(save.mlbSeasons+1));store();await storyBeat('Midseason','All-Star!','You hit '+f3(r.avg)+' with '+save.seasonLine.hr+' home runs in the first half. The fans voted you in.',[['ok','Let’s go']])}}
   $('resBanner').textContent=g.won?'Win':'Loss';$('resBanner').className='banner '+(g.won?'w':'l');
   $('resScore').textContent=g.teams[0].short+' '+g.score[0]+' · '+g.teams[1].short+' '+g.score[1];
   $('resLine').innerHTML=lineScore(g);
@@ -277,7 +288,7 @@ function liveAB(cfg){let lastLog=0;
     ABQ.quit=()=>{A=null;$('between').hidden=true;res({quit:true})};
     const go=async()=>{$('between').hidden=true;if(G&&G.role==='pitch')await enterPark(cfg,'bat',true);
       startPA({lv:cfg.lv,st:cfg.me.st,pitcher:ctx.pitcher,sit:ctx.sit,teams:ctx.teams,ab:ctx.ab,errRate:LEVELS[cfg.lv].err,arm:LEVELS[cfg.lv].arm,
-        intro:'At-bat '+ctx.ab+' · '+(ctx.sit.outs?ctx.sit.outs+' out'+(ctx.sit.outs>1?'s':''):'No outs')+(runnersText(ctx.sit.bases)?' · '+runnersText(ctx.sit.bases):''),
+        intro:(save&&save.nick?'Now batting: “'+save.nick+'” · ':'')+'At-bat '+ctx.ab+' · '+(ctx.sit.outs?ctx.sit.outs+' out'+(ctx.sit.outs>1?'s':''):'No outs')+(runnersText(ctx.sit.bases)?' · '+runnersText(ctx.sit.bases):''),
         onDone:r=>{lastLog=g.log.length+1;res(r)}})};
     betweenPanel(g,news,ctx,go,()=>{$('between').hidden=true;g.simRest=true;res(simMe())})});}
 const ABQ={quit:null};
@@ -304,7 +315,7 @@ function seasonEnd(){
   if(lv==='hs'){if(r.ops>=1.0&&pa>=25)awards.push('All-State ('+save.age+')');if(save.wl[0]>=save.wl[1]+4){awards.push('Conference champions');save.titles++}}
   if(lv==='college'){if(r.ops>=0.95&&pa>=35)awards.push('All-American');if(r.ops>=1.05&&L.hr>=6)awards.push('College Player of the Year');if(save.wl[0]>=12){awards.push('National tournament bid');}}
   if(LVL_ORDER.includes(lv)&&lv!=='mlb'){if(r.ops>=0.9&&pa>=40)awards.push(LEVELS[lv].name+' All-Star')}
-  if(lv==='mlb'){save.mlbSeasons++;if(r.ops>=0.85&&pa>=50)awards.push('All-Star');if(r.ops>=0.9&&pa>=70)awards.push('Silver Slugger');if(r.ops>=1.08&&L.hr>=12&&pa>=90)awards.push('MVP');if(save.mlbSeasons===1&&r.ops>=0.8&&pa>=50)awards.push('Rookie of the Year');
+  if(lv==='mlb'){save.mlbSeasons++;save.asDone=false;if(save.mlbSeasons===3||save.mlbSeasons===6)save.contractDue=save.mlbSeasons;if(r.ops>=0.85&&pa>=50)awards.push('All-Star');if(r.ops>=0.9&&pa>=70)awards.push('Silver Slugger');if(r.ops>=1.08&&L.hr>=12&&pa>=90)awards.push('MVP');if(save.mlbSeasons===1&&r.ops>=0.8&&pa>=50)awards.push('Rookie of the Year');
     if(save.wl[0]>=19){awards.push('Postseason');if(Math.random()<0.3+(save.wl[0]-19)*0.05){awards.push('Champions!');save.titles++}}}
   awards.forEach(a=>save.awards.push(a+' · '+(lv==='mlb'?'season '+save.mlbSeasons:LEVELS[lv].name+' '+save.age)));
   save.history.push({year:save.year,age:save.age,lv:save.lvlStart===lv?lv:save.lvlStart+'→'+lv,team:save.team.name,line:Object.assign({},L),wl:save.wl.slice(),awards});
@@ -329,7 +340,9 @@ function seasonEnd(){
   $('seasonBtns').innerHTML='<button class="go" id="snGo">'+(save.pending?'Continue':'Next season')+'</button>'+(save.retireAsk?'<button class="ghost" id="snRetire">Retire</button>':'');
   $('snGo').onclick=()=>renderHub();if($('snRetire'))$('snRetire').onclick=retire;
   show('season')}
-function retire(){save.retired=true;store();renderRecords()}
+async function retire(){save.retired=true;store();const h=hofScore();
+  await storyBeat('Cooperstown calling?',h>=300?'Hall of Famer':h>=180?'On the ballot':'A fine career',h>=300?'First ballot. Your plaque reads: '+esc(RBYID[save.char].name)+(save.nick?' “'+esc(save.nick)+'”':'')+', '+save.career.h+' hits, '+save.career.hr+' home runs.':h>=180?'The writers will debate your case for years. '+save.career.h+' hits, '+save.career.hr+' home runs.':'You gave it everything: '+save.career.h+' hits and '+save.career.hr+' home runs.',[['ok','Thanks for the memories']]);
+  renderRecords()}
 function draftScore(){const r=rate(save.seasonLine.pa?save.seasonLine:save.history.length?save.history[save.history.length-1].line:emptyLine());return myOVR()+clamp((r.ops-0.8)*20,-6,8)+rnd(-2,2)}
 function draftResult(){const s=draftScore(),age=save.age;let round,bonus;
   if(s>=72){round=1;bonus=rnd(2.5e6,7e6)}else if(s>=66){round=rnd(1,2)<1.5?1:2;bonus=rnd(1.1e6,2.5e6)}else if(s>=61){round=Math.round(rnd(3,5));bonus=rnd(3e5,8e5)}else if(s>=56){round=Math.round(rnd(6,10));bonus=rnd(1.25e5,2.5e5)}else if(s>=51){round=Math.round(rnd(11,20));bonus=rnd(5e4,1.25e5)}else return null;
@@ -365,13 +378,13 @@ function renderRecords(){
 function hofScore(){const c=save.career;return Math.round(c.h*0.12+c.hr*0.8+save.awards.filter(a=>/MVP/.test(a)).length*40+save.awards.filter(a=>/^All-Star|Silver/.test(a)).length*10+save.titles*15)}
 
 /* ================= batting practice and quick games ================= */
-async function startPractice(id,st,lv){
+async function startPractice(id,st,lv){ACTIVE_PERKS=[];
   const pitchers=['granny','ch39','ch28'];const pid=pitchers.find(p=>p!==id)||'ch28';
   await setupScene({park:LEVELS[lv].park,batterId:id,pitcherId:pid,homeColor:0x2E5FA8,defHue:200,myHue:0});sndResume();
   const L=LEVELS[lv],pi={name:RBYID[pid].name,velo:Math.round((L.velo[0]+L.velo[1])/2),control:70,stuff:55,ovr:50,mix:L.mix};
   A=null;startPA({lv,st,pitcher:pi,practice:true,intro:'Tap when the ring closes on your yellow circle.',teams:['',''],onDone:()=>{}});
   ABQ.quit=null}
-async function quickGame(id,st,lv){
+async function quickGame(id,st,lv){ACTIVE_PERKS=[];
   const t1=makeTeam('Home Nine','HOM',lv,pick(HUES)),t2=makeTeam('Visitors','VIS',lv,pick(HUES));
   const pitChar=pick(ROSTER.filter(r=>r.id!==id)).id;
   const cfg={lv,home:true,opp:{team:t2},my:{team:t1},me:{name:RBYID[id].name,id,st},pitChar,oppPitcher:makePitcher(lv,t2.pit,pitChar)};
