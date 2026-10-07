@@ -160,7 +160,8 @@ function choosePitch(pi,count){
   const mph=pi.velo*PT[type].v+gauss()*0.8,k=0.7+pi.stuff*0.006;
   return{type,tx,ty,mph,ax:PT[type].ax*k,ay:PT[type].ay*k}}
 /* trajectory: constant acceleration (gravity + break + a little drag) solved so it crosses the front of the plate at (tx,ty) */
-function makePitch(p,R){const v=p.mph*MPH,dz=-R.z,Tf=dz/(v*0.955),ax=p.ax,ay=-9.81+p.ay,az=v*0.09/Tf;
+const PACE={hs:0.74,college:0.8,rookie:0.84,a:0.85,aa:0.87,aaa:0.88,mlb:0.9};
+function makePitch(p,R){const v=p.mph*MPH*((A&&A.cfg.lv&&PACE[A.cfg.lv])||0.85),dz=-R.z,Tf=dz/(v*0.955),ax=p.ax,ay=-9.81+p.ay,az=v*0.09/Tf;
   const v0=new T.Vector3((p.tx-R.x-0.5*ax*Tf*Tf)/Tf,(p.ty-R.y-0.5*ay*Tf*Tf)/Tf,(dz-0.5*az*Tf*Tf)/Tf);
   return Object.assign(p,{R:R.clone(),v0,a:new T.Vector3(ax,ay,az),Tf})}
 function pitchPos(p,t){return new T.Vector3(p.R.x+p.v0.x*t+0.5*p.a.x*t*t,p.R.y+p.v0.y*t+0.5*p.a.y*t*t,p.R.z+p.v0.z*t+0.5*p.a.z*t*t)}
@@ -212,8 +213,9 @@ function release(){
 }
 /* the swing: tDown is when the finger touched (taps are judged from the touch, not the lift) */
 function swingAt(tDown){
-  if(!A||A.swing)return;if(A.state!=='pitch'&&A.state!=='wind')return;
-  if(A.state==='wind'&&now()<A.tRel-120){say('Wait for the pitch.');return}
+  if(!A||A.swing)return;
+  if(A.state==='ready'){say('Wait for the pitch, then tap as it gets close.');return}
+  if(A.state!=='pitch'&&A.state!=='wind')return;
   A.swing={t:tDown,type:swingType,pci:{x:A.pci.x,y:A.pci.y}};
   const b=G.batter,el=Math.max(0,(now()-tDown)/1000);
   // steer the bat toward the PCI: the hands move with it (only partly, the swing still has its shape)
@@ -229,8 +231,11 @@ function steerFor(x,y){const b=G.batter;if(!G.sweet)return null;
 function judgeContact(){
   const s=A.swing,p=A.pitch,tc=s.t+SWT*1000,dt=(tc-A.tCon)/1000;
   const bp=pitchPos(p,pitchTimeAtZ(p,0));
-  const res=contactOf(bp.x,bp.y,s.pci.x,s.pci.y,dt,A.cfg.st,s.type,p);A.contact=res;A.contact.dt=dt;A.contact.bx=bp.x;A.contact.by=bp.y;
+  const res=contactOf(bp.x,bp.y,s.pci.x,s.pci.y,dt,A.cfg.st,s.type,p);A.contact=res;A.contact.dt=dt;res.dt=dt;res.bx=bp.x;res.by=bp.y;A.contact.bx=bp.x;A.contact.by=bp.y;
   return res}
+/* why a swing missed, so you can adjust */
+function missWhy(c){const tw=c.qt>1;if(tw)return(c.dt<0?'too early':'too late')+' by '+Math.round(Math.abs(c.dt)*1000)+' ms';
+  const dx=c.bx-A.swing.pci.x,dy=c.by-A.swing.pci.y;return'the pitch was '+(Math.abs(dy)>Math.abs(dx)?(dy>0?'above':'below'):(dx>0?'outside':'inside'))+' your circle'}
 function pitchInfo(){const p=A.pitch;return Math.round(p.mph)+' mph '+PT[p.type].s}
 function locWord(x,y){const v=y>ZONE.hi?'up':y<ZONE.lo?'low':'',h=x>ZONE.hw?'away':x<-ZONE.hw?'inside':'';return(v&&h?v+' and '+h:v||h||'')}
 function callPitch(){
@@ -348,6 +353,7 @@ function stepAB(dt){
   if(A.state==='ready'){if(t>=A.t0)deliver()}
   if(A.state==='wind'){
     if(!A.loaded&&t>=A.tLoad){A.loaded=true;const b=G.batter;b.pose=null;b.startSwing('ld',0);b.swing.hold=true}
+    if(A.swing&&!A.judged&&t>=A.swing.t+SWT*1000){A.judged=true;A.whiff=true;say('Way too early: wait until the ball is on its way.')}
     if(t>=A.tRel)release()}
   if(A.state==='wind'||A.state==='pitch'){const b=G.batter;if(!A.loaded&&A.state==='pitch'){A.loaded=true;b.pose=null;b.startSwing('ld',0.3);b.swing.hold=true}}
   if(A.state==='pitch'){
@@ -356,9 +362,9 @@ function stepAB(dt){
     if(A.swing&&!A.judged&&t>=A.swing.t+SWT*1000){A.judged=true;const c=judgeContact();
       if(c.kind==='play'){const hp=pitchPos(p,pitchTimeAtZ(p,-0.28));W3.ball.position.copy(hp);inPlay(c);return}
       if(c.kind==='foul'){if(c.tip&&A.count[1]>=2&&Math.random()<0.3){sndGlove(0.6);umpire('Strike three!');showMark(pitchPos(p,pitchTimeAtZ(p,0)),0xF28A78);endPA({code:'K',tip:true});return}
-        sndBat(0.25,0.1);const B=simBall(55+Math.random()*25,rnd(-10,70),(Math.random()<0.5?-1:1)*rnd(50,80)*Math.PI/180,PARK,{x0:0,y0:c.by,z0:-0.3});A.B=B;A.R={code:'FOUL'};A.state='play';A.tP=now();planPlay(B,A.R);return}
+        say('Foul: just got a piece of it ('+missWhy(Object.assign({},c,{qt:c.qt>1?c.qt:0}))+')');sndBat(0.25,0.1);const B=simBall(55+Math.random()*25,rnd(-10,70),(Math.random()<0.5?-1:1)*rnd(50,80)*Math.PI/180,PARK,{x0:0,y0:c.by,z0:-0.3});A.B=B;A.R={code:'FOUL'};A.state='play';A.tP=now();planPlay(B,A.R);return}
       // swing and a miss
-      A.whiff=true;say('Swing and a miss · '+pitchInfo());}
+      A.whiff=true;say('Swing and a miss · '+missWhy(c));}
     const pos=pitchPos(p,Math.min(tt,(A.tCatch-A.tR)/1000));W3.ball.position.copy(pos);
     // catcher's glove meets the ball
     catcherTrack(p);
@@ -412,7 +418,7 @@ cv.addEventListener('pointermove',e=>{if(!A)return;
   if(e.pointerType==='mouse'&&!drag){if(W3._lm){movePCI(e.clientX-W3._lm[0],e.clientY-W3._lm[1],1.0)}W3._lm=[e.clientX,e.clientY];return}
   if(!drag||drag.id!==e.pointerId)return;const dx=e.clientX-drag.lx,dy=e.clientY-drag.ly;drag.lx=e.clientX;drag.ly=e.clientY;drag.moved+=Math.hypot(dx,dy);movePCI(dx,dy)});
 cv.addEventListener('pointerup',e=>{if(!drag||drag.id!==e.pointerId)return;const d=drag;drag=null;
-  if(d.moved<12&&now()-d.t<320)swingAt(d.t)});
+  if(d.moved<22&&now()-d.t<450)swingAt(d.t)});
 cv.addEventListener('pointercancel',()=>{drag=null});
 $('swingBtn').addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();if(!A)return;if(A.state==='play'||A.state==='done'){skipPlay();return}swingAt(now())});
 window.addEventListener('keydown',e=>{if($('ab').hidden||!A)return;

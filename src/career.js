@@ -234,7 +234,7 @@ function liveAB(cfg){let lastLog=0;
     if(g.simRest){res(simMe());return}
     ABQ.quit=()=>{A=null;$('between').hidden=true;res({quit:true})};
     const go=()=>{$('between').hidden=true;
-      startPA({st:cfg.me.st,pitcher:ctx.pitcher,sit:ctx.sit,teams:ctx.teams,ab:ctx.ab,errRate:LEVELS[cfg.lv].err,arm:LEVELS[cfg.lv].arm,
+      startPA({lv:cfg.lv,st:cfg.me.st,pitcher:ctx.pitcher,sit:ctx.sit,teams:ctx.teams,ab:ctx.ab,errRate:LEVELS[cfg.lv].err,arm:LEVELS[cfg.lv].arm,
         intro:'At-bat '+ctx.ab+' · '+(ctx.sit.outs?ctx.sit.outs+' out'+(ctx.sit.outs>1?'s':''):'No outs')+(runnersText(ctx.sit.bases)?' · '+runnersText(ctx.sit.bases):''),
         onDone:r=>{lastLog=g.log.length+1;res(r)}})};
     betweenPanel(g,news,ctx,go,()=>{$('between').hidden=true;g.simRest=true;res(simMe())})});}
@@ -327,7 +327,7 @@ async function startPractice(id,st,lv){
   const pitchers=['granny','ch39','ch28'];const pid=pitchers.find(p=>p!==id)||'ch28';
   await setupScene({park:LEVELS[lv].park,batterId:id,pitcherId:pid,homeColor:0x2E5FA8,defHue:200,myHue:0});sndResume();
   const L=LEVELS[lv],pi={name:RBYID[pid].name,velo:Math.round((L.velo[0]+L.velo[1])/2),control:70,stuff:55,ovr:50,mix:L.mix};
-  A=null;startPA({st,pitcher:pi,practice:true,intro:'Batting practice: drag to aim, tap to swing.',teams:['',''],onDone:()=>{}});
+  A=null;startPA({lv,st,pitcher:pi,practice:true,intro:'Drag to aim. Tap as the ball gets close: the swing takes a split second.',teams:['',''],onDone:()=>{}});
   ABQ.quit=null}
 async function quickGame(id,st,lv){
   const t1=makeTeam('Home Nine','HOM',lv,pick(HUES)),t2=makeTeam('Visitors','VIS',lv,pick(HUES));
