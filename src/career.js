@@ -4,6 +4,18 @@ let save=null;
 function load(){try{const s=localStorage.getItem(KEY_V);return s?JSON.parse(s):null}catch(e){return null}}
 function store(){try{localStorage.setItem(KEY_V,JSON.stringify(save))}catch(e){}}
 save=load();
+/* ---- rivals: three named pitchers who follow you up the ladder ---- */
+const RIVAL_TYPES={
+  heat:{t:'Flamethrower',velo:4,stuff:0,control:-6,mix:[['FF',70],['SL',20],['CH',10]],lines:['I’m throwing it right by you. Every time.','Hope you brought a faster bat.','Gas. That’s the whole scouting report.']},
+  junk:{t:'Junkballer',velo:-4,stuff:10,control:4,mix:[['CB',30],['SL',25],['CH',25],['FF',20]],lines:['You’ll never see a strike you can hit.','Swing hard. I love that.','Patience isn’t your thing, is it?']},
+  ice:{t:'Ice Man',velo:1,stuff:3,control:12,mix:[['FF',40],['CT',20],['SL',20],['CH',20]],lines:['Nothing personal.','Corners all day.','I’ve seen your film. Next.']}};
+const RIVAL_NAMES=['Dutch Calloway','Vince “Viper” Moreno','Kaz Tanaka','Bo Hendricks','Rocco Salinas','Jett Pryor','Silas Crane','Mateo Ruiz'];
+function makeRivals(){const ch=ROSTER.filter(r=>r.id!==(save&&save.char)).sort(()=>Math.random()-0.5),nm=RIVAL_NAMES.slice().sort(()=>Math.random()-0.5);
+  return['heat','junk','ice'].map((t,i)=>({name:nm[i],id:ch[i].id,type:t,ab:0,h:0,hr:0,k:0,bb:0}))}
+if(save&&!save.rivals){save.rivals=makeRivals();store()}
+function rivalPitcher(rv,lv,teamPit){const T0=RIVAL_TYPES[rv.type],p=makePitcher(lv,(teamPit||LEVELS[lv].pit)+7,rv.id);
+  p.name=rv.name;p.velo+=T0.velo;p.stuff=clamp(p.stuff+T0.stuff,20,99);p.control=clamp(p.control+T0.control,20,99);p.mix=T0.mix.slice();p.rival=true;return p}
+function h2h(rv){return rv.h+'-for-'+rv.ab+(rv.hr?', '+rv.hr+' HR':'')+(rv.k?', '+rv.k+' K':'')}
 try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}
 if('serviceWorker' in navigator&&(location.protocol==='https:'||location.hostname==='localhost'))navigator.serviceWorker.register('sw.js').catch(()=>{});
 const STANDALONE=(window.matchMedia&&matchMedia('(display-mode: standalone)').matches)||navigator.standalone===true;
@@ -47,6 +59,8 @@ $('btnNew').onclick=()=>{if(save&&!save.retired){$('btnNew').hidden=true;$('btnN
 $('btnNewConfirm').onclick=()=>openSelect('career');
 $('btnPractice').onclick=()=>openSelect('practice');
 $('btnQuick').onclick=()=>openSelect('quick');
+$('btnDerby').onclick=()=>openSelect('derby');
+$('btnPinball').onclick=()=>openSelect('pinball');
 $('btnSettings').onclick=()=>openSettings();
 $('pmSettings').onclick=()=>openSettings();
 function renderSaveCard(){
@@ -73,7 +87,7 @@ function careerStart(c){const keys=['contact','power','eye','speed','field','arm
   for(const k of['velo','control','stuff'])st[k]=START_FLOOR+Math.round(c.shape[k]*1.5);return st}
 function openSelect(mode){
   selMode=mode;selId=mode!=='career'&&save?save.char:null;
-  $('selEyebrow').textContent=mode==='career'?'New career':mode==='practice'?'Batting practice':'Quick game';
+  $('selEyebrow').textContent=mode==='career'?'New career':mode==='practice'?'Batting practice':mode==='derby'?'Home Run Derby':mode==='pinball'?'Home Run Pinball':'Quick game';
   $('selIntro').textContent=mode==='career'?'Every career starts as a 16-year-old high school sophomore with the same total ratings, shaped like the player you pick. Play, train and grow into the ratings shown here, and past them.':'Pick who you want to hit as.';
   $('roster').innerHTML=ROSTER.map(r=>'<button class="pc" data-id="'+r.id+'" aria-pressed="'+(r.id===selId)+'"><strong>'+esc(r.name)+'</strong><small>'+esc(r.nick)+'</small><div class="mini">'+BAT.map(([k,l])=>'<span>'+l+'</span><div class="bar"><i style="width:'+prime(r,k)+'%"></i></div>').join('')+'</div></button>').join('');
   $('roster').querySelectorAll('.pc').forEach(b=>b.onclick=()=>{selId=b.dataset.id;$('roster').querySelectorAll('.pc').forEach(x=>x.setAttribute('aria-pressed',x===b));updSel()});
@@ -82,7 +96,7 @@ function updSel(){$('selGo').disabled=!selId;$('selGo').textContent=selId?(selMo
 $('selBack').onclick=()=>renderTitle();
 $('selGo').onclick=()=>{if(!selId)return;if(selMode==='career'){openCreate();return}
   const lv=$('qmLevel').value,c=RBYID[selId],st={};for(const k of['contact','power','eye','speed','field','arm'])st[k]=lv==='hs'?prime(c,k)-20:lv==='college'?prime(c,k)-8:prime(c,k)+4;
-  if(selMode==='practice')startPractice(selId,st,lv);else quickGame(selId,st,lv)};
+  if(selMode==='practice')startPractice(selId,st,lv);else if(selMode==='derby'||selMode==='pinball')startMode(selMode,selId,st,lv);else quickGame(selId,st,lv)};
 let posId=null;
 function openCreate(){posId=null;$('twoWay').checked=false;
   $('positions').innerHTML=POSITIONS.map(([id,n,d])=>'<button class="pc" data-id="'+id+'" aria-pressed="false"><strong>'+id+' · '+n+'</strong><small>'+d+'</small></button>').join('');
@@ -94,6 +108,7 @@ $('createGo').onclick=()=>{if(!posId)return;const c=RBYID[selId];
     team:makeTeam('Lincoln','LIN','hs',pick(HUES)),school:'Lincoln',history:[],awards:[],career:emptyLine(),byLevel:{},seasonLine:emptyLine(),games:[],gi:0,
     college:null,collegeSeasons:0,draft:null,org:null,mlbSeasons:0,retired:false,recent:[],titles:0,
     milestones:{}};
+  save.rivals=makeRivals();save.keyOnly=true;
   newSeason();store();renderHub()};
 
 /* ================= seasons ================= */
@@ -109,7 +124,8 @@ function myTeamFor(lv){if(lv==='hs')return makeTeam(save.school,save.school.slic
 function newSeason(){
   const lv=save.level;save.team=myTeamFor(lv);save.opps=teamsFor(lv);save.seasonLine=emptyLine();save.gi=0;save.recent=[];save.post=null;save.wl=[0,0];
   const n=GAMES[lv];save.games=[];for(let i=0;i<n;i++)save.games.push({o:i%save.opps.length,home:i%2===0,res:null});
-  save.games.sort(()=>Math.random()-0.5);save.lvlStart=save.level;save.allStar=false}
+  save.games.sort(()=>Math.random()-0.5);save.lvlStart=save.level;save.allStar=false;
+  if(save.rivals){const k=Math.max(2,Math.round(n/6));for(let j=0;j<k;j++){const gi=Math.min(n-1,Math.round((j+0.6)*n/k));save.games[gi].rv=j%3}save.games[n-1].rv=save.games[n-1].rv!=null?save.games[n-1].rv:Math.floor(Math.random()*3)}}
 function promote(to,midSeason){const from=save.level;save.level=to;
   const done=save.games.slice(0,save.gi).filter(g=>g.res);save.byLevel[from]=addLine(save.byLevel[from]||emptyLine(),{});
   save.team=myTeamFor(to);save.opps=teamsFor(to);
@@ -130,8 +146,11 @@ function renderHub(){
   const G0=save.games[save.gi],opp=save.opps[G0.o],left=save.games.length-save.gi;
   $('nextCard').innerHTML='<p class="eyebrow">Game '+(save.gi+1)+' of '+save.games.length+(save.post?' · '+esc(save.post.name):'')+'</p><h3 style="font-size:26px">'+(G0.home?'vs ':'at ')+esc(opp.name)+'</h3>'+
     '<div class="row"><span class="chip"><span class="dot" style="background:#'+new T.Color(opp.color).getHexString()+'"></span>'+esc(opp.short)+'</span><span class="chip">'+LEVELS[save.level].inn+' innings</span><span class="chip">'+PARKS[LEVELS[save.level].park].name+'</span><span class="chip">Batting '+ord(LEVELS[save.level].spot)+'</span></div>'+
+    (G0.rv!=null&&save.rivals?(rv=>'<div class="opp"><p class="eyebrow">Rival on the mound · '+RIVAL_TYPES[rv.type].t+'</p><p style="font-weight:600;font-size:18px">'+esc(rv.name)+'</p><p class="quote">“'+esc(pick(RIVAL_TYPES[rv.type].lines))+'”</p><p class="muted" style="font-size:13px">Head-to-head: '+h2h(rv)+'</p></div>')(save.rivals[G0.rv]):'')+
+    '<label class="toggle" style="padding:8px 10px"><input type="checkbox" id="keyOnly" '+(save.keyOnly!==false?'checked':'')+'><span><b>Key moments only.</b> Play the at-bats that matter (up to 4); the rest are simmed with your ratings.</span></label>'+
     (save.recent.length?'<p class="muted" style="font-size:14px">Last games: '+save.recent.slice(-5).map(x=>'<b class="'+(x.w?'tw':'tl')+'">'+(x.w?'W':'L')+'</b> '+x.s).join(' · ')+'</p>':'')+
     '<div class="row"><button class="go" id="btnPlay" style="flex:1">Play game</button><button class="ghost" id="btnSim">Sim game</button>'+(left>1?'<button class="ghost" id="btnSim5">Sim '+Math.min(5,left)+'</button>':'')+'</div>';
+  $('keyOnly').onchange=e=>{save.keyOnly=e.target.checked;store()};
   $('btnPlay').onclick=()=>playCareerGame(true);$('btnSim').onclick=()=>simGames(1);if($('btnSim5'))$('btnSim5').onclick=()=>simGames(Math.min(5,left));
   const L=save.seasonLine;
   $('statsCard').innerHTML='<h3>Season stats</h3>'+statTable([['This season',L],['Career',save.career]]);
@@ -159,10 +178,10 @@ function statTable(rows){return'<table class="ftab"><tr><th></th><th>G</th><th>A
   '<p class="muted num" style="font-size:13px">'+rows.map(([n,L])=>n+': '+(L.pa||0)+' PA, '+(L.h||0)+' H, '+(L.d||0)+' 2B, '+(L.t||0)+' 3B, '+(L.bb||0)+' BB, '+(L.k||0)+' K, '+(L.r||0)+' R').join('<br>')+'</p>'}
 
 /* ================= playing and simulating games ================= */
-function gameCfg(){const g=save.games[save.gi],opp=save.opps[g.o],lv=save.level;
-  const pitChar=pick(ROSTER.filter(r=>r.id!==save.char)).id;
-  return{lv,home:g.home,opp:{team:opp},my:{team:save.team},me:{name:RBYID[save.char].name,id:save.char,st:save.st},pitChar,
-    oppPitcher:Object.assign(makePitcher(lv,opp.pit,pitChar),{})}}
+function gameCfg(){const g=save.games[save.gi],opp=save.opps[g.o],lv=save.level,rv=g.rv!=null&&save.rivals?save.rivals[g.rv]:null;
+  const pitChar=rv?rv.id:pick(ROSTER.filter(r=>r.id!==save.char)).id;
+  return{lv,home:g.home,opp:{team:opp},my:{team:save.team},me:{name:RBYID[save.char].name,id:save.char,st:save.st},pitChar,rival:rv,keyOnly:save.keyOnly!==false,
+    oppPitcher:rv?rivalPitcher(rv,lv,opp.pit):makePitcher(lv,opp.pit,pitChar)}}
 async function playCareerGame(live){
   const cfg=gameCfg();
   if(live){await enterPark(cfg);cfg.live=liveAB(cfg)}
@@ -196,12 +215,15 @@ function afterGame(g,live,cfg,quiet){
   gm.res={w:g.won,s,me:me.h+'-for-'+me.ab+(me.hr?', '+me.hr+' HR':'')+(me.rbi?', '+me.rbi+' RBI':'')};gm.lvl=save.level;
   addLine(save.seasonLine,me);addLine(save.career,me);save.byLevel[save.level]=addLine(save.byLevel[save.level]||emptyLine(),me);
   save.wl[g.won?0:1]++;save.recent.push({w:g.won,s});save.gi++;
-  const xp=xpFor(me,g.won,live);save.xp+=xp;
+  let xp=xpFor(me,g.won,live);
+  if(cfg.rival){const rv=cfg.rival;rv.ab+=me.ab;rv.h+=me.h;rv.hr+=me.hr;rv.k+=me.k;rv.bb+=me.bb;g.rivalNote=me.hr?'You took '+rv.name+' deep! Head-to-head: '+h2h(rv)+'.':me.h?'You got to '+rv.name+'. Head-to-head: '+h2h(rv)+'.':rv.name+' got the better of you. Head-to-head: '+h2h(rv)+'.';if(me.h)xp+=8+me.hr*10}
+  save.xp+=xp;
   const pay=MONEY[save.level]/GAMES[save.level]*(save.level==='mlb'?salaryMult():1);if(pay){save.money+=pay;save.earnings+=pay}
   const notes=checkMilestones(me);
   const promo=checkPromotion();
   store();
   if(quiet){if(promo)save.flash=promo;return}
+  if(g.rivalNote)notes.unshift(g.rivalNote);
   showGameResult(g,xp,notes,promo,cfg)}
 function salaryMult(){const s=save.mlbSeasons;const r=rate(save.byLevel.mlb||emptyLine());return(1+s*0.6)*(1+Math.max(0,r.ops-0.72)*4)}
 function checkMilestones(me){const n=[],c=save.career,M=save.milestones;
@@ -247,12 +269,12 @@ function betweenPanel(g,news,ctx,go,simRest){
   const p=$('between'),s=ctx.sit;p.hidden=false;
   $('btwHead').innerHTML='<p class="eyebrow">'+(s.half==='top'?'Top':'Bottom')+' of the '+ord(s.inning)+' · '+s.outs+' out'+(s.outs===1?'':'s')+'</p><h3 class="num">'+esc(g.teams[0].short)+' '+g.score[0]+' · '+esc(g.teams[1].short)+' '+g.score[1]+'</h3>';
   $('btwLog').innerHTML=news.slice(-14).map(x=>x.h?'<li class="h">'+esc(x.t)+'</li>':'<li class="'+(x.me?'me':'')+'">'+esc(x.t)+'</li>').join('')||'<li class="muted">Play ball!</li>';
-  $('btwSit').textContent='Your turn: '+(runnersText(s.bases)||'bases empty')+'. '+ctx.pitcher.name+' is on the mound ('+ctx.pitcher.velo+' mph · '+ctx.pitcher.mix.map(m=>PT[m[0]].s).join(', ')+').';
+  $('btwSit').innerHTML=(ctx.head?'<b class="tw">'+esc(ctx.head)+'</b><br>':'')+'Your turn: '+esc(runnersText(s.bases)||'bases empty')+'. '+esc(ctx.pitcher.name)+(ctx.pitcher.rival?' <b class="tl">(your rival)</b>':'')+' is on the mound ('+ctx.pitcher.velo+' mph · '+ctx.pitcher.mix.map(m=>PT[m[0]].s).join(', ')+').'+(ctx.pitcher.rival&&ctx.ab===1?(rvo=>rvo?'<br><i class="quote">“'+esc(pick(RIVAL_TYPES[rvo.type].lines))+'”</i>':'')(save&&save.rivals&&save.rivals.find(r=>r.name===ctx.pitcher.name)):'');
   $('btwGo').onclick=go;$('btwSim').onclick=simRest}
 $('quit').onclick=()=>{if(!$('between').hidden){$('pmQuit').click();return}openPause()};
 function openPause(){$('pauseMenu').hidden=false;CLK.paused=true}
 $('pmResume').onclick=()=>{$('pauseMenu').hidden=true;CLK.paused=false};
-$('pmQuit').onclick=()=>{$('pauseMenu').hidden=true;CLK.paused=false;const prac=A&&A.practice;A=null;$('between').hidden=true;
+$('pmQuit').onclick=()=>{$('pauseMenu').hidden=true;CLK.paused=false;if(MD){clearTargets();MD=null}const prac=A&&A.practice;A=null;$('between').hidden=true;
   if(!prac&&ABQ.quit){const q=ABQ.quit;ABQ.quit=null;q()}else renderTitleOrHub()};
 function renderTitleOrHub(){if(save&&!save.retired)renderHub();else renderTitle()}
 

@@ -72,7 +72,14 @@ async function playGame(cfg){
         const k=g.spot[bat]%9,isMe=bat===myIdx&&k===meSpot-1,b=isMe?mine:lineups[bat][k],pit=bat===myIdx?{ovr:oppP.ovr,control:oppP.control,stuff:oppP.stuff}:myP;
         let res;
         const sit={inning:i,half,outs,bases:bases.slice(),score:g.score.slice()};
-        if(isMe&&cfg.live){liveCount++;res=await cfg.live({sit,g,ab:liveCount,pitcher:oppP,teams:teams.map(t=>t.short)})}
+        // key moments: only the at-bats that matter are played live (the rest are simulated with your ratings)
+        let live=isMe&&cfg.live,head=null;
+        if(live&&cfg.keyOnly){const diff=g.score[myIdx]-g.score[1-myIdx],late=i>=inn-2,close=Math.abs(diff)<=3,risp=bases[1]!=null||bases[2]!=null;
+          const key=(late&&close)||(risp&&close&&i>=3)||(i>=inn&&diff<=0)||(liveCount===0&&i>=Math.ceil(inn/2));
+          live=key&&liveCount<4;
+          if(live)head=(diff<0?'Down '+(-diff):diff>0?'Up '+diff:'Tied')+', '+(runnersText2(bases)||'bases empty')+', '+(half==='top'?'top':'bottom')+' of the '+ord(i)+(late&&close?'. Big spot!':'.')}
+        if(live){liveCount++;res=await cfg.live({sit,g,ab:liveCount,pitcher:oppP,teams:teams.map(t=>t.short),head})}
+        else if(isMe&&cfg.live)res=simPA(mine,pit,sit,opts)
         else res=simPA(b,pit,sit,opts);
         if(res.quit){g.quit=true;return g}
         // where did you go if you were on base?
@@ -100,3 +107,5 @@ function lineScore(g){const n=Math.max(g.line[0].length,g.line[1].length,g.innin
   const head='<tr><th></th>'+Array.from({length:n},(_,i)=>'<th>'+(i+1)+'</th>').join('')+'<th>R</th><th>H</th></tr>';
   const row=i=>'<tr class="'+(i===g.myIdx?'me':'')+'"><td>'+esc(g.teams[i].short)+'</td>'+Array.from({length:n},(_,k)=>'<td>'+(g.line[i][k]!=null?g.line[i][k]:'')+'</td>').join('')+'<td><b>'+g.score[i]+'</b></td><td>'+g.hits[i]+'</td></tr>';
   return'<div class="lsw"><table class="ls">'+head+row(0)+row(1)+'</table></div>'}
+
+function runnersText2(b){const on=[0,1,2].filter(k=>b&&b[k]!=null);if(!on.length)return'';if(on.length===3)return'bases loaded';return'runner'+(on.length>1?'s':'')+' on '+on.map(k=>['first','second','third'][k]).join(' and ')}

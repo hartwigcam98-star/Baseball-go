@@ -26,7 +26,7 @@ async def main():
         btn=btn or await pg.query_selector('[data-a="sign"]') or await pg.query_selector('[data-a="fa"]') or await pg.query_selector('[data-a="col"]')
         await btn.click()
       else: log.append(('other',vis));break
-      if len([l for l in log if l[0]=='season'])>=12:break
+      if len([l for l in log if l[0]=='season'])>=5:break
     for l in log:print(l)
     print(await pg.evaluate("()=>{const s=__BG.save;return {lv:s.level,age:s.age,st:s.st,career:s.career,awards:s.awards,money:s.money}}"))
     print('errors',errs[:5])

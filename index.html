@@ -250,7 +250,9 @@ textarea{width:100%;background:var(--panel-2);border:1px solid var(--line);borde
 #dbg{position:absolute;left:8px;right:8px;top:calc(env(safe-area-inset-top,0px) + 136px);text-align:center;font:12px ui-monospace,Menlo,monospace;color:#9FE;text-shadow:0 1px 2px #000;pointer-events:none}
 #replayTag{position:absolute;left:12px;top:calc(env(safe-area-inset-top,0px) + 108px);display:flex;align-items:center;gap:8px;background:rgba(5,12,20,.86);border:1px solid var(--line);border-radius:10px;padding:6px 12px;font-family:var(--display);font-weight:800;font-size:18px;letter-spacing:.12em;text-transform:uppercase;pointer-events:none}
 #replayTag i{width:10px;height:10px;border-radius:50%;background:#F28A78;animation:blink 1s steps(2) infinite}#replayTag small{font-family:var(--body);font-weight:500;font-size:12px;letter-spacing:0;text-transform:none;color:var(--muted)}
+#ab.mode #meters{display:none}
 #ab.rp .ctl,#ab.rp #grades{visibility:hidden}
+#modeEnd{position:fixed;inset:0;z-index:55;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(5,12,20,.7)}#modeEnd .card{max-width:380px;width:100%;text-align:center}
 #grades{position:absolute;left:0;right:0;top:calc(34% + 64px);display:flex;justify-content:center;gap:8px;pointer-events:none;opacity:0;transition:opacity .2s}
 #grades.on{opacity:1}
 .gr{display:flex;flex-direction:column;align-items:center;min-width:104px;padding:4px 12px;border-radius:10px;background:rgba(5,12,20,.86);border:1px solid var(--line);font-family:var(--display);font-weight:800;font-size:20px;letter-spacing:.04em;text-transform:uppercase}
@@ -277,7 +279,8 @@ textarea{width:100%;background:var(--panel-2);border:1px solid var(--line);borde
     <div class="card">
       <span class="chip" id="careerChip">No save yet</span>
       <div class="row"><button class="go" id="btnContinue" hidden>Continue career</button><button id="btnNew">New career</button><button id="btnNewConfirm" hidden>Start over? Tap to confirm</button></div>
-      <div class="row"><button class="ghost" id="btnPractice">Batting practice</button><button class="ghost" id="btnQuick">Quick game</button><button class="ghost" id="btnSettings">Settings</button></div>
+      <div class="row"><button class="ghost" id="btnPractice">Batting practice</button><button class="ghost" id="btnQuick">Quick game</button></div>
+      <div class="row"><button class="ghost" id="btnDerby">Home Run Derby</button><button class="ghost" id="btnPinball">HR Pinball</button><button class="ghost" id="btnSettings">Settings</button></div>
     </div>
     <div class="card">
       <h3>How to hit</h3>
@@ -402,6 +405,7 @@ textarea{width:100%;background:var(--panel-2);border:1px solid var(--line);borde
 
 <div id="settings" hidden><div class="card"><div class="row between"><h3>Settings</h3><button class="go" id="setDone">Done</button></div><div id="setBody"></div></div></div>
 <div id="calib" hidden><div id="calDot"></div><p id="calMsg"></p><button class="ghost" id="calCancel">Cancel</button></div>
+<div id="modeEnd" hidden><div class="card"><p class="eyebrow" id="meTitle"></p><div id="meBody"></div><div class="row"><button class="go" id="meAgain" style="flex:1">Go again</button><button class="ghost" id="meQuit">Menu</button></div></div></div>
 <script>/* three.js r170 (MIT) */
 (function(){
 /**
@@ -1395,7 +1399,7 @@ let aimMode='auto';try{const m=localStorage.getItem('bg-aim');if(AIMS[m])aimMode
 function renderAim(){const b=$('aimBtn');if(b)b.textContent='Aim: '+AIMS[aimMode].n}
 /* load characters and build the scene. cfg: {park, batterId, pitcherId, fielderIds:[a,b], homeColor, defHue, myHue} */
 async function setupScene(cfg){
-  initGL();show('ab');$('loading').hidden=false;$('loadMsg').textContent='Loading the ballpark…';
+  initGL();show('ab');$('ab').classList.remove('mode');$('loading').hidden=false;$('loadMsg').textContent='Loading the ballpark…';
   W3.homeColor=cfg.homeColor||0x2E5FA8;
   if(G)disposeScene();
   buildPark(cfg.park);
@@ -1500,7 +1504,7 @@ function nextPitchSoon(ms){A.state='ready';A.t0=now()+(ms||rnd(800,1300));A.pitc
   const c=G.catcher;c.pos.set(0,0,1.05);c.pose='cr';c.swing=null;
   W3.ball.visible=true;FX.tp=[];}
 function deliver(){
-  const pi=A.cfg.pitcher;A.pitch=choosePitch(pi,A.count);
+  const pi=A.cfg.pitcher;A.pitch=A.cfg.mode?modePitch():choosePitch(pi,A.count);
   if(A.count[1]===2&&A.count[0]<3&&Math.random()<0.3&&(A.pitch.type==='FF'||A.pitch.type==='SI')){A.pitch.turbo=true;A.pitch.mph+=7}A.state='wind';A.tW=now();G.pitcher.pose=null;G.pitcher.startSwing('pt',0);
   A.tRel=A.tW+SWINGS.pt.dur*SWINGS.pt.cf*1000;A.tLoad=A.tRel-430;A.loaded=false;A.pitches++;
 }
@@ -1515,7 +1519,7 @@ function release(){
   A.catchZ=0.92;A.tCatch=A.tR+pitchTimeAtZ(A.pitch,A.catchZ)*1000;
   // reading the pitch: a sharper eye names it sooner
   const eye=A.cfg.st.eye;A.tRead=A.tR+clamp(330-eye*2.6,60,300);A.read=false;
-  sndWhoosh();if(A.pitch.turbo){say('Turbo heater from '+A.cfg.pitcher.name+'!');W3.ball.material.emissive.setHex(0xFF5A1F);W3.ball.material.emissiveIntensity=1.6}else{W3.ball.material.emissive.setHex(0);}
+  sndWhoosh();if(A.pitch.gold){say('Golden ball! A homer counts double.');W3.ball.material.emissive.setHex(0xFFC21A);W3.ball.material.emissiveIntensity=1.4}else if(A.pitch.turbo){say('Turbo heater from '+A.cfg.pitcher.name+'!');W3.ball.material.emissive.setHex(0xFF5A1F);W3.ball.material.emissiveIntensity=1.6}else{W3.ball.material.emissive.setHex(0);}
 }
 /* the swing: tDown is when the finger touched (taps are judged from the touch, not the lift) */
 function swingAt(tDown){
@@ -1555,6 +1559,7 @@ function pitchInfo(){const p=A.pitch;return Math.round(p.mph)+' mph '+PT[p.type]
 function locWord(x,y){const v=y>ZONE.hi?'up':y<ZONE.lo?'low':'',h=x>ZONE.hw?'away':x<-ZONE.hw?'inside':'';return(v&&h?v+' and '+h:v||h||'')}
 function callPitch(){
   const p=A.pitch,bp=pitchPos(p,pitchTimeAtZ(p,0)),strike=inZone(bp.x+gauss()*0.008,bp.y+gauss()*0.008);
+  if(A.cfg.mode){showMark(bp,0xffffff);say('Taken. Only swings count.');return}
   showMark(bp,strike?0xF28A78:0x74D493);A.ptSeen.push({x:bp.x,y:bp.y,type:p.type,res:strike?'S':'B'});
   if(strike){A.count[1]++;if(A.count[1]>=3){umpire('Strike three!');endPA({code:'K',kLooking:true});return}umpire('Strike!');say('Called strike · '+pitchInfo()+(locWord(bp.x,bp.y)?'':''))}
   else{A.count[0]++;gainTurbo(35);if(A.count[0]>=4){umpire('Ball four.');endPA({code:'BB'});return}say('Ball · '+pitchInfo()+' · '+locWord(bp.x,bp.y))}
@@ -1677,13 +1682,14 @@ function finishPlay(){const R=A.R;
   if(A.contact&&A.contact.bunt&&(R.code==='GO'||R.code==='FC')&&R.out===1&&(R.runnerMoves||[]).length&&R.code==='GO'){R.code='SH';R.desc='lays down a sacrifice bunt'}
   const out={code:R.code==='HR'?'HR':R.code,out:R.out,bases:R.bases,runs:R.runs,rbi:R.rbi,desc:R.desc,hit:R.hit,err:R.err,runnerMoves:R.runnerMoves};
   if(A.practice){A.state='done';A.tDone=now();A.res=out;showCall(CODE_TEXT[R.code]||R.code,false,R.hit?'w':'l');say(contactLine());
+    if(A.cfg.mode){modeSwing('play',R);if(A.state!=='over'){A.state='done';A.tDone=now();A.res=out}return}
     rewardMeters(out);if(R.code==='HR')showCall('Home run! '+Math.round(distFt())+' ft',false,'w');
     const bp=A.bp=A.bp||{n:0,hits:0,hr:0,best:0};bp.n++;if(R.hit)bp.hits++;if(R.code==='HR')bp.hr++;const ft=Math.round(distFt());if(ft>bp.best)bp.best=ft;renderHUD();return}
   endPA(out)}
 /* projected distance: where it landed, or for a home run where it would have come down */
 function distFt(){const B=A.B;if(!B)return 0;if(B.hr){const c=A.contact,B2=simBall(c.ev,c.la,c.spray,{line:999,cf:999,wall:0},{x0:0,y0:c.by,z0:-0.3});return(B2.dist||0)*3.281}return(B.dist||0)*3.281}
 function contactLine(){const c=A.contact;if(!c)return'';const d=distFt();return Math.round(c.ev)+' mph off the bat · '+Math.round(c.la)+'°'+(d>30?' · '+Math.round(d)+' ft':'')}
-function foulBall(){A.foulPlay=false;if(A.count[1]<2)A.count[1]++;gainTurbo(15);umpire('Foul ball.');showCall('Foul',false,'');say('Foul · '+pitchInfo());renderHUD();cleanupPlay();nextPitchSoon(1500)}
+function foulBall(){A.foulPlay=false;if(A.cfg.mode){modeSwing('foul');showCall('Foul',false,'');cleanupPlay();if(A.state!=='over')nextPitchSoon(1200);return}if(A.count[1]<2)A.count[1]++;gainTurbo(15);umpire('Foul ball.');showCall('Foul',false,'');say('Foul · '+pitchInfo());renderHUD();cleanupPlay();nextPitchSoon(1500)}
 function cleanupPlay(){W3.land.visible=false;if(G.dropped){W3.scene.remove(G.dropped);G.dropped=null}resetPositions();placeRunners(A.cfg.sit?A.cfg.sit.bases:null);W3.pci.visible=true;W3.zone.visible=true}
 
 /* ---- per-frame at-bat logic ---- */
@@ -1712,7 +1718,8 @@ function stepAB(dt){
     // catcher's glove meets the ball
     catcherTrack(p);
     if(t>=A.tCatch&&!(A.swing&&!A.judged)){W3.ball.position.copy(pitchPos(p,(A.tCatch-A.tR)/1000));drawTracer(p);
-      if(A.swing){const bp=pitchPos(p,pitchTimeAtZ(p,0));showMark(bp,0xF28A78);A.ptSeen.push({x:bp.x,y:bp.y,type:p.type,res:'W'});A.count[1]++;
+      if(A.swing&&A.cfg.mode){showMark(pitchPos(p,pitchTimeAtZ(p,0)),0xF28A78);modeSwing('whiff');if(A.state==='pitch')nextPitchSoon()}
+      else if(A.swing){const bp=pitchPos(p,pitchTimeAtZ(p,0));showMark(bp,0xF28A78);A.ptSeen.push({x:bp.x,y:bp.y,type:p.type,res:'W'});A.count[1]++;
         if(A.count[1]>=3){umpire('Strike three!');endPA({code:'K'});return}umpire('Strike!');renderHUD();nextPitchSoon()}
       else{callPitch();if(A.state==='pitch')nextPitchSoon()}
       $('ptype').hidden=true;A.judged=false}}
@@ -1738,6 +1745,7 @@ let callT=null;
 function showCall(t,dive,cls){const c=$('call');c.textContent=t;c.className='on '+(cls||'');clearTimeout(callT);callT=setTimeout(()=>c.className=cls||'',1500)}
 function renderHUD(){if(!A)return;const c=A.cfg,s=c.sit;
   $('cnt').innerHTML='<b>'+A.count[0]+'</b>–<b>'+A.count[1]+'</b>';
+  if(c.mode){renderMode();$('cnt').textContent='';return}
   if(A.practice){$('bug').innerHTML='<div class="bl"><span class="eyebrow">Batting practice</span><span class="num">'+(A.bp?A.bp.n+' swings · '+A.bp.hr+' HR · best '+A.bp.best+' ft':'')+'</span></div>';return}
   const inn=(s.half==='top'?'▲ ':'▼ ')+ord(s.inning);
   $('bug').innerHTML='<div class="bl"><span class="tm">'+esc(c.teams[0])+' <b class="num">'+s.score[0]+'</b></span><span class="tm">'+esc(c.teams[1])+' <b class="num">'+s.score[1]+'</b></span></div>'+
@@ -1824,6 +1832,56 @@ function camera(dt){
   else{const port=W3.cam.aspect<1,ch=CAMH[OPT.cam]||0;tp=new T.Vector3(port?0.3:0.45,(port?2.05:1.9)+ch,(port?5.3:4.6)+ch*0.8);tl=new T.Vector3(port?-0.3:-0.35,port?0.9:1.1,-9);k=Math.min(1,dt*4)}
   W3.camPos.lerp(tp,k);W3.camLook.lerp(tl,k);W3.cam.position.copy(W3.camPos);const sk=shakeOffset();if(sk)W3.cam.position.add(sk);W3.cam.lookAt(W3.camLook)}
 
+/* ================= quick modes: Home Run Derby and Home Run Pinball =================
+   Both run on batting practice: a coach throws meatballs and every swing counts.
+   Derby: 10 outs, any swing that isn't a homer is an out, every fifth pitch is a golden ball worth two.
+   Pinball: 20 swings, hits score points and glowing rings above the wall pay big when a drive flies through them. */
+const MODES={derby:{n:'Home Run Derby',outs:10},pinball:{n:'Home Run Pinball',swings:20}};
+const BEST_KEY='bg-best';
+function bests(){try{return JSON.parse(localStorage.getItem(BEST_KEY))||{}}catch(e){return{}}}
+function today(){const d=new Date();return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate()}
+let MD=null;// the running mode
+async function startMode(mode,id,st,lv){
+  const pid=id==='granny'?'ch39':'granny';
+  await setupScene({park:LEVELS[lv].park,batterId:id,pitcherId:pid,homeColor:0x2E5FA8,defHue:200,myHue:0});sndResume();
+  MD={mode,lv,id,st,score:0,outs:0,swings:0,pitchN:0,dist:0,targets:[]};
+  if(mode==='pinball')makeTargets();
+  const pi={name:RBYID[pid].name,velo:Math.round(LEVELS[lv].velo[0]+3),control:95,stuff:30,ovr:50,mix:[['FF',1]]};
+  A=null;startPA({lv,st,pitcher:pi,practice:true,mode,intro:mode==='derby'?'Home Run Derby: 10 outs. Anything but a homer is an out.':'Pinball: 20 swings. Drive it through the rings!',teams:['',''],onDone:()=>{}});
+  ABQ.quit=null;$('ab').classList.add('mode');renderMode()}
+/* meatballs: belt high over the plate, a little wander; every fifth one in the derby is golden */
+function modePitch(){MD.pitchN++;const gold=MD.mode==='derby'&&MD.pitchN%5===0;
+  return{type:'FF',tx:gauss()*0.07,ty:0.78+gauss()*0.07,mph:A.cfg.pitcher.velo+gauss(),ax:-1,ay:3,gold}}
+function makeTargets(){const vals=[[-0.55,500,18],[-0.25,200,12],[0,300,20],[0.3,200,11],[0.58,500,16]];
+  for(const [phi,pts,h] of vals){const d=fenceDist(phi)+6,p=dirOf(phi).multiplyScalar(d);p.y=PARK.wall+h;
+    const col=pts>=500?0xFF4D9A:pts>=300?0xF2C230:0x4CD3FF,g=new T.Group();
+    const ring=new T.Mesh(new T.TorusGeometry(4.2,0.35,10,40),new T.MeshBasicMaterial({color:col}));g.add(ring);
+    const lab=cvTex(256,128,(c,w,h)=>{c.fillStyle='rgba(0,0,0,0)';c.clearRect(0,0,w,h);c.font='bold 80px sans-serif';c.textAlign='center';c.fillStyle='#fff';c.strokeStyle='#000';c.lineWidth=8;c.strokeText(pts,w/2,90);c.fillText(pts,w/2,90)});
+    const sp=new T.Sprite(new T.SpriteMaterial({map:lab,transparent:true,depthWrite:false}));sp.scale.set(7,3.5,1);sp.position.y=5.6;g.add(sp);
+    g.position.copy(p);g.lookAt(0,p.y,0);W3.scene.add(g);MD.targets.push({g,ring,p,pts,r:4.2,col})}}
+function clearTargets(){if(!MD)return;for(const t of MD.targets){W3.scene.remove(t.g)}MD.targets=[]}
+/* called after every swing in a mode: kind is 'play', 'foul' or 'whiff'; R is the play result for balls in play */
+function modeSwing(kind,R){if(!MD||!A||A.cfg.mode!==MD.mode)return;MD.swings++;let pts=0,msg='';
+  const gold=A.pitch&&A.pitch.gold;
+  if(MD.mode==='derby'){if(kind==='play'&&R.code==='HR'){pts=gold?2:1;MD.dist+=Math.round(distFt());msg=gold?'Golden homer! +2':'+1 homer'}else{MD.outs++;msg='Out '+MD.outs+' of 10'}}
+  else{if(kind==='play'){pts={'1B':10,'2B':25,'3B':50,HR:100}[R.code]||0;
+      // rings: did the flight pass through any of them?
+      const P=A.B.pts;for(const t of MD.targets){if(t.hit)continue;for(let k=0;k<P.length;k+=4){const dx=P[k+1]-t.p.x,dy=P[k+2]-t.p.y,dz=P[k+3]-t.p.z;if(dx*dx+dy*dy+dz*dz<t.r*t.r){t.hitNow=true;break}}
+        if(t.hitNow){t.hitNow=false;pts+=t.pts;fireworks(t.p.x,t.p.y,t.p.z,2,[[1,1,1]]);t.ring.material.color.setHex(0xffffff);setTimeout(()=>t.ring.material.color.setHex(t.col),600);msg='Ring! +'+t.pts}}
+      if(!msg)msg=pts?'+'+pts:'No points'}
+    else msg='No points';msg+=' · swing '+MD.swings+' of 20'}
+  MD.score+=pts;if(pts)showCall(msg,false,'w');say(msg);renderMode();
+  const over=MD.mode==='derby'?MD.outs>=10:MD.swings>=20;if(over){A.state='over';setTimeout(endMode,1600)}}
+function renderMode(){if(!MD)return;const B=bests()[MD.mode]||0;
+  $('bug').innerHTML='<div class="bl"><span class="eyebrow">'+MODES[MD.mode].n+'</span><span class="tm">Score <b class="num">'+MD.score+'</b></span></div><div class="bm"><span class="num">'+(MD.mode==='derby'?MD.outs+'/10 outs':MD.swings+'/20')+'</span><span class="muted" style="font-size:12px">Best '+B+'</span></div>'}
+function endMode(){if(!MD||!A)return;const b=bests(),m=MD.mode,best=b[m]||0,dk=m+'_'+today(),day=b[dk]||0,isBest=MD.score>best;
+  if(isBest)b[m]=MD.score;if(MD.score>day)b[dk]=MD.score;try{localStorage.setItem(BEST_KEY,JSON.stringify(b))}catch(e){}
+  A.state='over';if(typeof onModeScore==='function')onModeScore(m,MD.score);
+  const p=$('modeEnd');p.hidden=false;$('meTitle').textContent=MODES[m].n;
+  $('meBody').innerHTML='<p class="score-line num">'+MD.score+'</p><p class="muted">'+(m==='derby'?'home runs'+(MD.dist?' · '+MD.dist.toLocaleString()+' total feet':''):'points')+'</p>'+(isBest?'<p class="banner w">New personal best!</p>':'<p class="muted">Best: '+best+' · Today: '+Math.max(day,MD.score)+'</p>');
+  $('meAgain').onclick=()=>{p.hidden=true;clearTargets();const s=MD;MD=null;startMode(s.mode,s.id,s.st,s.lv)};
+  $('meQuit').onclick=()=>{p.hidden=true;clearTargets();MD=null;A=null;renderTitle()}}
+
 /* ================= games: the innings around your at-bats =================
    Every other plate appearance is simulated with the same ball physics and defence as your live ones:
    strikeouts and walks come from the matchup, balls in play get an exit velocity, launch angle and spray. */
@@ -1898,7 +1956,14 @@ async function playGame(cfg){
         const k=g.spot[bat]%9,isMe=bat===myIdx&&k===meSpot-1,b=isMe?mine:lineups[bat][k],pit=bat===myIdx?{ovr:oppP.ovr,control:oppP.control,stuff:oppP.stuff}:myP;
         let res;
         const sit={inning:i,half,outs,bases:bases.slice(),score:g.score.slice()};
-        if(isMe&&cfg.live){liveCount++;res=await cfg.live({sit,g,ab:liveCount,pitcher:oppP,teams:teams.map(t=>t.short)})}
+        // key moments: only the at-bats that matter are played live (the rest are simulated with your ratings)
+        let live=isMe&&cfg.live,head=null;
+        if(live&&cfg.keyOnly){const diff=g.score[myIdx]-g.score[1-myIdx],late=i>=inn-2,close=Math.abs(diff)<=3,risp=bases[1]!=null||bases[2]!=null;
+          const key=(late&&close)||(risp&&close&&i>=3)||(i>=inn&&diff<=0)||(liveCount===0&&i>=Math.ceil(inn/2));
+          live=key&&liveCount<4;
+          if(live)head=(diff<0?'Down '+(-diff):diff>0?'Up '+diff:'Tied')+', '+(runnersText2(bases)||'bases empty')+', '+(half==='top'?'top':'bottom')+' of the '+ord(i)+(late&&close?'. Big spot!':'.')}
+        if(live){liveCount++;res=await cfg.live({sit,g,ab:liveCount,pitcher:oppP,teams:teams.map(t=>t.short),head})}
+        else if(isMe&&cfg.live)res=simPA(mine,pit,sit,opts)
         else res=simPA(b,pit,sit,opts);
         if(res.quit){g.quit=true;return g}
         // where did you go if you were on base?
@@ -1927,12 +1992,26 @@ function lineScore(g){const n=Math.max(g.line[0].length,g.line[1].length,g.innin
   const row=i=>'<tr class="'+(i===g.myIdx?'me':'')+'"><td>'+esc(g.teams[i].short)+'</td>'+Array.from({length:n},(_,k)=>'<td>'+(g.line[i][k]!=null?g.line[i][k]:'')+'</td>').join('')+'<td><b>'+g.score[i]+'</b></td><td>'+g.hits[i]+'</td></tr>';
   return'<div class="lsw"><table class="ls">'+head+row(0)+row(1)+'</table></div>'}
 
+function runnersText2(b){const on=[0,1,2].filter(k=>b&&b[k]!=null);if(!on.length)return'';if(on.length===3)return'bases loaded';return'runner'+(on.length>1?'s':'')+' on '+on.map(k=>['first','second','third'][k]).join(' and ')}
+
 /* ================= career: high school → college or the draft → the minors → the Bigs ================= */
 const KEY_V='baseball-go-v1';
 let save=null;
 function load(){try{const s=localStorage.getItem(KEY_V);return s?JSON.parse(s):null}catch(e){return null}}
 function store(){try{localStorage.setItem(KEY_V,JSON.stringify(save))}catch(e){}}
 save=load();
+/* ---- rivals: three named pitchers who follow you up the ladder ---- */
+const RIVAL_TYPES={
+  heat:{t:'Flamethrower',velo:4,stuff:0,control:-6,mix:[['FF',70],['SL',20],['CH',10]],lines:['I’m throwing it right by you. Every time.','Hope you brought a faster bat.','Gas. That’s the whole scouting report.']},
+  junk:{t:'Junkballer',velo:-4,stuff:10,control:4,mix:[['CB',30],['SL',25],['CH',25],['FF',20]],lines:['You’ll never see a strike you can hit.','Swing hard. I love that.','Patience isn’t your thing, is it?']},
+  ice:{t:'Ice Man',velo:1,stuff:3,control:12,mix:[['FF',40],['CT',20],['SL',20],['CH',20]],lines:['Nothing personal.','Corners all day.','I’ve seen your film. Next.']}};
+const RIVAL_NAMES=['Dutch Calloway','Vince “Viper” Moreno','Kaz Tanaka','Bo Hendricks','Rocco Salinas','Jett Pryor','Silas Crane','Mateo Ruiz'];
+function makeRivals(){const ch=ROSTER.filter(r=>r.id!==(save&&save.char)).sort(()=>Math.random()-0.5),nm=RIVAL_NAMES.slice().sort(()=>Math.random()-0.5);
+  return['heat','junk','ice'].map((t,i)=>({name:nm[i],id:ch[i].id,type:t,ab:0,h:0,hr:0,k:0,bb:0}))}
+if(save&&!save.rivals){save.rivals=makeRivals();store()}
+function rivalPitcher(rv,lv,teamPit){const T0=RIVAL_TYPES[rv.type],p=makePitcher(lv,(teamPit||LEVELS[lv].pit)+7,rv.id);
+  p.name=rv.name;p.velo+=T0.velo;p.stuff=clamp(p.stuff+T0.stuff,20,99);p.control=clamp(p.control+T0.control,20,99);p.mix=T0.mix.slice();p.rival=true;return p}
+function h2h(rv){return rv.h+'-for-'+rv.ab+(rv.hr?', '+rv.hr+' HR':'')+(rv.k?', '+rv.k+' K':'')}
 try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}
 if('serviceWorker' in navigator&&(location.protocol==='https:'||location.hostname==='localhost'))navigator.serviceWorker.register('sw.js').catch(()=>{});
 const STANDALONE=(window.matchMedia&&matchMedia('(display-mode: standalone)').matches)||navigator.standalone===true;
@@ -1976,6 +2055,8 @@ $('btnNew').onclick=()=>{if(save&&!save.retired){$('btnNew').hidden=true;$('btnN
 $('btnNewConfirm').onclick=()=>openSelect('career');
 $('btnPractice').onclick=()=>openSelect('practice');
 $('btnQuick').onclick=()=>openSelect('quick');
+$('btnDerby').onclick=()=>openSelect('derby');
+$('btnPinball').onclick=()=>openSelect('pinball');
 $('btnSettings').onclick=()=>openSettings();
 $('pmSettings').onclick=()=>openSettings();
 function renderSaveCard(){
@@ -2002,7 +2083,7 @@ function careerStart(c){const keys=['contact','power','eye','speed','field','arm
   for(const k of['velo','control','stuff'])st[k]=START_FLOOR+Math.round(c.shape[k]*1.5);return st}
 function openSelect(mode){
   selMode=mode;selId=mode!=='career'&&save?save.char:null;
-  $('selEyebrow').textContent=mode==='career'?'New career':mode==='practice'?'Batting practice':'Quick game';
+  $('selEyebrow').textContent=mode==='career'?'New career':mode==='practice'?'Batting practice':mode==='derby'?'Home Run Derby':mode==='pinball'?'Home Run Pinball':'Quick game';
   $('selIntro').textContent=mode==='career'?'Every career starts as a 16-year-old high school sophomore with the same total ratings, shaped like the player you pick. Play, train and grow into the ratings shown here, and past them.':'Pick who you want to hit as.';
   $('roster').innerHTML=ROSTER.map(r=>'<button class="pc" data-id="'+r.id+'" aria-pressed="'+(r.id===selId)+'"><strong>'+esc(r.name)+'</strong><small>'+esc(r.nick)+'</small><div class="mini">'+BAT.map(([k,l])=>'<span>'+l+'</span><div class="bar"><i style="width:'+prime(r,k)+'%"></i></div>').join('')+'</div></button>').join('');
   $('roster').querySelectorAll('.pc').forEach(b=>b.onclick=()=>{selId=b.dataset.id;$('roster').querySelectorAll('.pc').forEach(x=>x.setAttribute('aria-pressed',x===b));updSel()});
@@ -2011,7 +2092,7 @@ function updSel(){$('selGo').disabled=!selId;$('selGo').textContent=selId?(selMo
 $('selBack').onclick=()=>renderTitle();
 $('selGo').onclick=()=>{if(!selId)return;if(selMode==='career'){openCreate();return}
   const lv=$('qmLevel').value,c=RBYID[selId],st={};for(const k of['contact','power','eye','speed','field','arm'])st[k]=lv==='hs'?prime(c,k)-20:lv==='college'?prime(c,k)-8:prime(c,k)+4;
-  if(selMode==='practice')startPractice(selId,st,lv);else quickGame(selId,st,lv)};
+  if(selMode==='practice')startPractice(selId,st,lv);else if(selMode==='derby'||selMode==='pinball')startMode(selMode,selId,st,lv);else quickGame(selId,st,lv)};
 let posId=null;
 function openCreate(){posId=null;$('twoWay').checked=false;
   $('positions').innerHTML=POSITIONS.map(([id,n,d])=>'<button class="pc" data-id="'+id+'" aria-pressed="false"><strong>'+id+' · '+n+'</strong><small>'+d+'</small></button>').join('');
@@ -2023,6 +2104,7 @@ $('createGo').onclick=()=>{if(!posId)return;const c=RBYID[selId];
     team:makeTeam('Lincoln','LIN','hs',pick(HUES)),school:'Lincoln',history:[],awards:[],career:emptyLine(),byLevel:{},seasonLine:emptyLine(),games:[],gi:0,
     college:null,collegeSeasons:0,draft:null,org:null,mlbSeasons:0,retired:false,recent:[],titles:0,
     milestones:{}};
+  save.rivals=makeRivals();save.keyOnly=true;
   newSeason();store();renderHub()};
 
 /* ================= seasons ================= */
@@ -2038,7 +2120,8 @@ function myTeamFor(lv){if(lv==='hs')return makeTeam(save.school,save.school.slic
 function newSeason(){
   const lv=save.level;save.team=myTeamFor(lv);save.opps=teamsFor(lv);save.seasonLine=emptyLine();save.gi=0;save.recent=[];save.post=null;save.wl=[0,0];
   const n=GAMES[lv];save.games=[];for(let i=0;i<n;i++)save.games.push({o:i%save.opps.length,home:i%2===0,res:null});
-  save.games.sort(()=>Math.random()-0.5);save.lvlStart=save.level;save.allStar=false}
+  save.games.sort(()=>Math.random()-0.5);save.lvlStart=save.level;save.allStar=false;
+  if(save.rivals){const k=Math.max(2,Math.round(n/6));for(let j=0;j<k;j++){const gi=Math.min(n-1,Math.round((j+0.6)*n/k));save.games[gi].rv=j%3}save.games[n-1].rv=save.games[n-1].rv!=null?save.games[n-1].rv:Math.floor(Math.random()*3)}}
 function promote(to,midSeason){const from=save.level;save.level=to;
   const done=save.games.slice(0,save.gi).filter(g=>g.res);save.byLevel[from]=addLine(save.byLevel[from]||emptyLine(),{});
   save.team=myTeamFor(to);save.opps=teamsFor(to);
@@ -2059,8 +2142,11 @@ function renderHub(){
   const G0=save.games[save.gi],opp=save.opps[G0.o],left=save.games.length-save.gi;
   $('nextCard').innerHTML='<p class="eyebrow">Game '+(save.gi+1)+' of '+save.games.length+(save.post?' · '+esc(save.post.name):'')+'</p><h3 style="font-size:26px">'+(G0.home?'vs ':'at ')+esc(opp.name)+'</h3>'+
     '<div class="row"><span class="chip"><span class="dot" style="background:#'+new T.Color(opp.color).getHexString()+'"></span>'+esc(opp.short)+'</span><span class="chip">'+LEVELS[save.level].inn+' innings</span><span class="chip">'+PARKS[LEVELS[save.level].park].name+'</span><span class="chip">Batting '+ord(LEVELS[save.level].spot)+'</span></div>'+
+    (G0.rv!=null&&save.rivals?(rv=>'<div class="opp"><p class="eyebrow">Rival on the mound · '+RIVAL_TYPES[rv.type].t+'</p><p style="font-weight:600;font-size:18px">'+esc(rv.name)+'</p><p class="quote">“'+esc(pick(RIVAL_TYPES[rv.type].lines))+'”</p><p class="muted" style="font-size:13px">Head-to-head: '+h2h(rv)+'</p></div>')(save.rivals[G0.rv]):'')+
+    '<label class="toggle" style="padding:8px 10px"><input type="checkbox" id="keyOnly" '+(save.keyOnly!==false?'checked':'')+'><span><b>Key moments only.</b> Play the at-bats that matter (up to 4); the rest are simmed with your ratings.</span></label>'+
     (save.recent.length?'<p class="muted" style="font-size:14px">Last games: '+save.recent.slice(-5).map(x=>'<b class="'+(x.w?'tw':'tl')+'">'+(x.w?'W':'L')+'</b> '+x.s).join(' · ')+'</p>':'')+
     '<div class="row"><button class="go" id="btnPlay" style="flex:1">Play game</button><button class="ghost" id="btnSim">Sim game</button>'+(left>1?'<button class="ghost" id="btnSim5">Sim '+Math.min(5,left)+'</button>':'')+'</div>';
+  $('keyOnly').onchange=e=>{save.keyOnly=e.target.checked;store()};
   $('btnPlay').onclick=()=>playCareerGame(true);$('btnSim').onclick=()=>simGames(1);if($('btnSim5'))$('btnSim5').onclick=()=>simGames(Math.min(5,left));
   const L=save.seasonLine;
   $('statsCard').innerHTML='<h3>Season stats</h3>'+statTable([['This season',L],['Career',save.career]]);
@@ -2088,10 +2174,10 @@ function statTable(rows){return'<table class="ftab"><tr><th></th><th>G</th><th>A
   '<p class="muted num" style="font-size:13px">'+rows.map(([n,L])=>n+': '+(L.pa||0)+' PA, '+(L.h||0)+' H, '+(L.d||0)+' 2B, '+(L.t||0)+' 3B, '+(L.bb||0)+' BB, '+(L.k||0)+' K, '+(L.r||0)+' R').join('<br>')+'</p>'}
 
 /* ================= playing and simulating games ================= */
-function gameCfg(){const g=save.games[save.gi],opp=save.opps[g.o],lv=save.level;
-  const pitChar=pick(ROSTER.filter(r=>r.id!==save.char)).id;
-  return{lv,home:g.home,opp:{team:opp},my:{team:save.team},me:{name:RBYID[save.char].name,id:save.char,st:save.st},pitChar,
-    oppPitcher:Object.assign(makePitcher(lv,opp.pit,pitChar),{})}}
+function gameCfg(){const g=save.games[save.gi],opp=save.opps[g.o],lv=save.level,rv=g.rv!=null&&save.rivals?save.rivals[g.rv]:null;
+  const pitChar=rv?rv.id:pick(ROSTER.filter(r=>r.id!==save.char)).id;
+  return{lv,home:g.home,opp:{team:opp},my:{team:save.team},me:{name:RBYID[save.char].name,id:save.char,st:save.st},pitChar,rival:rv,keyOnly:save.keyOnly!==false,
+    oppPitcher:rv?rivalPitcher(rv,lv,opp.pit):makePitcher(lv,opp.pit,pitChar)}}
 async function playCareerGame(live){
   const cfg=gameCfg();
   if(live){await enterPark(cfg);cfg.live=liveAB(cfg)}
@@ -2125,12 +2211,15 @@ function afterGame(g,live,cfg,quiet){
   gm.res={w:g.won,s,me:me.h+'-for-'+me.ab+(me.hr?', '+me.hr+' HR':'')+(me.rbi?', '+me.rbi+' RBI':'')};gm.lvl=save.level;
   addLine(save.seasonLine,me);addLine(save.career,me);save.byLevel[save.level]=addLine(save.byLevel[save.level]||emptyLine(),me);
   save.wl[g.won?0:1]++;save.recent.push({w:g.won,s});save.gi++;
-  const xp=xpFor(me,g.won,live);save.xp+=xp;
+  let xp=xpFor(me,g.won,live);
+  if(cfg.rival){const rv=cfg.rival;rv.ab+=me.ab;rv.h+=me.h;rv.hr+=me.hr;rv.k+=me.k;rv.bb+=me.bb;g.rivalNote=me.hr?'You took '+rv.name+' deep! Head-to-head: '+h2h(rv)+'.':me.h?'You got to '+rv.name+'. Head-to-head: '+h2h(rv)+'.':rv.name+' got the better of you. Head-to-head: '+h2h(rv)+'.';if(me.h)xp+=8+me.hr*10}
+  save.xp+=xp;
   const pay=MONEY[save.level]/GAMES[save.level]*(save.level==='mlb'?salaryMult():1);if(pay){save.money+=pay;save.earnings+=pay}
   const notes=checkMilestones(me);
   const promo=checkPromotion();
   store();
   if(quiet){if(promo)save.flash=promo;return}
+  if(g.rivalNote)notes.unshift(g.rivalNote);
   showGameResult(g,xp,notes,promo,cfg)}
 function salaryMult(){const s=save.mlbSeasons;const r=rate(save.byLevel.mlb||emptyLine());return(1+s*0.6)*(1+Math.max(0,r.ops-0.72)*4)}
 function checkMilestones(me){const n=[],c=save.career,M=save.milestones;
@@ -2176,12 +2265,12 @@ function betweenPanel(g,news,ctx,go,simRest){
   const p=$('between'),s=ctx.sit;p.hidden=false;
   $('btwHead').innerHTML='<p class="eyebrow">'+(s.half==='top'?'Top':'Bottom')+' of the '+ord(s.inning)+' · '+s.outs+' out'+(s.outs===1?'':'s')+'</p><h3 class="num">'+esc(g.teams[0].short)+' '+g.score[0]+' · '+esc(g.teams[1].short)+' '+g.score[1]+'</h3>';
   $('btwLog').innerHTML=news.slice(-14).map(x=>x.h?'<li class="h">'+esc(x.t)+'</li>':'<li class="'+(x.me?'me':'')+'">'+esc(x.t)+'</li>').join('')||'<li class="muted">Play ball!</li>';
-  $('btwSit').textContent='Your turn: '+(runnersText(s.bases)||'bases empty')+'. '+ctx.pitcher.name+' is on the mound ('+ctx.pitcher.velo+' mph · '+ctx.pitcher.mix.map(m=>PT[m[0]].s).join(', ')+').';
+  $('btwSit').innerHTML=(ctx.head?'<b class="tw">'+esc(ctx.head)+'</b><br>':'')+'Your turn: '+esc(runnersText(s.bases)||'bases empty')+'. '+esc(ctx.pitcher.name)+(ctx.pitcher.rival?' <b class="tl">(your rival)</b>':'')+' is on the mound ('+ctx.pitcher.velo+' mph · '+ctx.pitcher.mix.map(m=>PT[m[0]].s).join(', ')+').'+(ctx.pitcher.rival&&ctx.ab===1?(rvo=>rvo?'<br><i class="quote">“'+esc(pick(RIVAL_TYPES[rvo.type].lines))+'”</i>':'')(save&&save.rivals&&save.rivals.find(r=>r.name===ctx.pitcher.name)):'');
   $('btwGo').onclick=go;$('btwSim').onclick=simRest}
 $('quit').onclick=()=>{if(!$('between').hidden){$('pmQuit').click();return}openPause()};
 function openPause(){$('pauseMenu').hidden=false;CLK.paused=true}
 $('pmResume').onclick=()=>{$('pauseMenu').hidden=true;CLK.paused=false};
-$('pmQuit').onclick=()=>{$('pauseMenu').hidden=true;CLK.paused=false;const prac=A&&A.practice;A=null;$('between').hidden=true;
+$('pmQuit').onclick=()=>{$('pauseMenu').hidden=true;CLK.paused=false;if(MD){clearTargets();MD=null}const prac=A&&A.practice;A=null;$('between').hidden=true;
   if(!prac&&ABQ.quit){const q=ABQ.quit;ABQ.quit=null;q()}else renderTitleOrHub()};
 function renderTitleOrHub(){if(save&&!save.retired)renderHub();else renderTitle()}
 
@@ -2272,7 +2361,7 @@ async function quickGame(id,st,lv){
 
 document.addEventListener('pointerdown',sndResume,{passive:true});
 $('snd').textContent=SND.on?'Sound on':'Sound off';$('snd').onclick=()=>{sndResume();$('snd').textContent=sndToggle()?'Sound on':'Sound off'};
-window.__GT=()=>GT;window.__BG={MET,get A(){return A},get G(){return G},W3,setupScene,startPA,swingAt,SWINGS,PT,simBall,resolvePlay,get save(){return save}};
+window.__GT=()=>GT;window.__BG={MET,get MD(){return MD},get A(){return A},get G(){return G},W3,setupScene,startPA,swingAt,SWINGS,PT,simBall,resolvePlay,get save(){return save}};
 renderTitle();
 })();
 </script>
