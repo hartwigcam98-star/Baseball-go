@@ -1,7 +1,7 @@
 /* ================= feel: settings, tap calibration, performance, debug overlay, pitch readability,
    sitting on a zone, and home run replays ================= */
 const OPT_KEY='bg-opt';
-const OPT=Object.assign({lat:0,quality:'auto',haptics:true,cam:'normal',speed:'normal',debug:false,replays:true},(()=>{try{return JSON.parse(localStorage.getItem(OPT_KEY))||{}}catch(e){return{}}})());
+const OPT=Object.assign({stance:'classic',lat:0,quality:'auto',haptics:true,cam:'normal',speed:'normal',debug:false,replays:true},(()=>{try{return JSON.parse(localStorage.getItem(OPT_KEY))||{}}catch(e){return{}}})());
 function saveOpt(){try{localStorage.setItem(OPT_KEY,JSON.stringify(OPT))}catch(e){}}
 const SPEEDS={slower:0.86,normal:1,faster:1.12};
 const CAMH={low:-0.25,normal:0,high:0.35};
@@ -13,6 +13,7 @@ function renderSettings(){
   $('setBody').innerHTML=
     '<div class="setrow"><span>Touch delay<small>Your phone’s delay between touching the glass and the game hearing it. Calibrate it once.</small></span><div class="seg"><b class="num">'+Math.round(OPT.lat)+' ms</b><button id="calGo">Calibrate</button></div></div>'+
     row('Aim','aim',[['auto','Auto'],['lock','Lock-on'],['manual','Manual']],'Auto: you only time the swing.')+
+    row('Batting stance','stance',Object.entries(STANCES).map(([k,v])=>[k,v.n]),(STANCES[OPT.stance]||STANCES.classic).d)+
     row('Pitch speed','speed',[['slower','Slower'],['normal','Normal'],['faster','Faster']])+
     row('Graphics','quality',[['auto','Auto'],['high','High'],['low','Low']],'Low turns off shadows and thins the crowd for a smoother game.')+
     row('Camera','cam',[['low','Low'],['normal','Normal'],['high','High']])+
@@ -21,7 +22,7 @@ function renderSettings(){
     row('Timing readout','debug',[[true,'On'],[false,'Off']],'Shows your timing in milliseconds after every swing.');
   $('setBody').querySelectorAll('button[data-k]').forEach(b=>b.onclick=()=>{const k=b.dataset.k;let v=b.dataset.v;if(v==='true')v=true;else if(v==='false')v=false;
     if(k==='aim'){aimMode=v;try{localStorage.setItem('bg-aim',v)}catch(_){}renderAim()}else OPT[k]=v;
-    saveOpt();if(k==='quality')applyQuality();renderSettings()});
+    saveOpt();if(k==='quality')applyQuality();if(k==='stance')applyStance(v);renderSettings()});
   $('calGo').onclick=startCalibration;
   // the aim mode lives in its own key
   $('setBody').querySelectorAll('button[data-k=aim]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.v===aimMode)))}
@@ -92,3 +93,5 @@ function replayCam(){const bp=W3.ball.position,far=Math.hypot(bp.x,bp.z),t=(now(
   return[new T.Vector3(-3+bp.x*0.2,2+Math.min(bp.y,25)*0.3,6+far*0.05),new T.Vector3(bp.x,bp.y*0.9,bp.z)]}
 /* a broadcast cut on big contact: half a second from the side, then the follow camera */
 function cutCam(){return[new T.Vector3(7,1.4,-5),new T.Vector3(W3.ball.position.x*0.5-0.4,1.1,W3.ball.position.z*0.3)]}
+
+applyStance(OPT.stance);

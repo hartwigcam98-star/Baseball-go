@@ -109,7 +109,7 @@ let G=null;// the loaded scene: {park, batter, pitcher, catcher, fielders[], run
 let A=null;// the current plate appearance
 const SWT=SWINGS.sw.dur*SWINGS.sw.cf;// tap to contact, seconds
 const BATTER_X=-0.86;
-const STYPES={contact:{n:'Contact',pci:1.28,ev:0.9,tw:1.18},normal:{n:'Normal',pci:1,ev:1,tw:1},power:{n:'Power',pci:0.74,ev:1.09,tw:0.85}};
+const STYPES={contact:{n:'Contact',pci:1.28,ev:0.9,tw:1.18},normal:{n:'Normal',pci:1,ev:1,tw:1},power:{n:'Power',pci:0.74,ev:1.09,tw:0.85},bunt:{n:'Bunt',pci:1.4,ev:0.4,tw:2.4}};
 let swingType='normal';
 /* The Bigs-style meters, per game. Turbo: up to 3 charges, earned by taking balls, fouling pitches off and getting hits;
    spend one for a turbo swing (bigger circle, wider timing, harder contact). Big Blast: filled by hits and RBIs; when full,
@@ -197,6 +197,8 @@ function contactOf(bx,by,px,py,dt,st,styp,p){
   const ox=(bx-px)/rx,oy=(by-py)/ry,d=Math.hypot(ox,oy),qt=Math.abs(dt)/tw,base={d,qt,ox,oy,dt};
   if(d>1.22||qt>1.45)return Object.assign(base,{kind:'whiff'});
   if(d>1||qt>1){return Object.assign(base,Math.random()<0.55?{kind:'foul',tip:Math.random()<0.25}:{kind:'whiff'})}
+  if(styp==='bunt'){const ev=clamp(rnd(26,40)-qt*6,18,45),la=clamp(-6-oy*14+gauss()*4,-25,22),spray=clamp(ox*28+gauss()*7,-38,38);
+    return Object.assign(base,{kind:'play',ev,la,spray:spray*Math.PI/180,q:0.2,bunt:true})}
   const perfect=qt<=0.35&&d<=0.38;
   let q=clamp(1-d*d*0.5-qt*qt*0.55,0,1);if(perfect)q=Math.max(q,0.93);
   const top=(80+st.power*0.27)*S.ev*(MET.armT?1.07:1),ev=clamp(perfect?top*rnd(0.98,1.03):top*(0.58+0.42*q)+gauss()*2.5,35,121);
@@ -250,16 +252,21 @@ function release(){
 }
 /* the swing: tDown is when the finger touched (taps are judged from the touch, not the lift) */
 function swingAt(tDown){
+  if(A&&A.swing&&!A.judged&&!A.swing.checked&&swingType!=='bunt'&&now()-A.swing.real<170){checkSwing();return}
   if(!A||A.swing)return;tDown-=OPT.lat||0;
   if(A.state==='ready'){say('Wait for the pitch, then tap as it gets close.');return}
   if(A.state!=='pitch'&&A.state!=='wind')return;
-  A.swing={t:tDown,type:swingType,pci:{x:A.pci.x,y:A.pci.y}};
+  A.swing={t:tDown,real:now(),type:swingType,pci:{x:A.pci.x,y:A.pci.y}};
+  if(swingType==='bunt'){A.swing.t=tDown;if(OPT.haptics)hapticTap();return}
   const b=G.batter,el=Math.max(0,(now()-tDown)/1000);
   // steer the bat toward the PCI: the hands move with it (only partly, the swing still has its shape)
   const off=steerFor(A.swing.pci.x,A.swing.pci.y);
   A.swing.turbo=MET.armT;A.swing.blast=MET.armB;
   b.pose=null;b.startSwing('sw',Math.min(el,SWT*0.9),off,1);if(OPT.haptics)hapticTap();if(MET.armT){b.bat&&b.bat.userData.wood.emissive.setHex(0xFF6A00)}
 }
+/* holding up: the bat comes back; if it went past halfway the umpire rules it a swing */
+function checkSwing(){const s=A.swing,u=(now()-s.real)/1000/SWT;s.checked=true;s.went=u>0.5;const b=G.batter;b.swing=null;b.post={P:b.lastP||STANCE,t:0};b.pose='stance';
+  say(s.went?'Checked… but he went around!':'Held up.')}
 function steerFor(x,y){const b=G.batter;if(!G.sweet)return null;
   // the sweet spot nominally sits at G.sweet (world, relative to the batter); move the hands so it lands on (x,y, contact plane)
   const want=new T.Vector3(x,y,-0.25).sub(b.pos),d=want.sub(G.sweet);
@@ -267,7 +274,7 @@ function steerFor(x,y){const b=G.batter;if(!G.sweet)return null;
   const k=100/(PSCALE*b.sz);
   return{hand:[-d.z*k*0.7,d.y*k*0.9,d.x*k*0.85],rd:[0,-d.y*0.6,0]}}
 function judgeContact(){
-  const s=A.swing,p=A.pitch,tc=s.t+SWT*1000,dt=(tc-A.tCon)/1000;
+  const s=A.swing,p=A.pitch,tc=s.t+(s.type==='bunt'?0.06:SWT)*1000,dt=(tc-A.tCon)/1000;
   const bp=pitchPos(p,pitchTimeAtZ(p,0));
   const res=contactOf(bp.x,bp.y,s.pci.x,s.pci.y,dt,A.cfg.st,s.type,p);showGrades(res);debugSwing(res);
   if(s.turbo){MET.armT=false;MET.turbo=Math.max(0,MET.turbo-100);renderMeters()}
@@ -314,11 +321,11 @@ function planPlay(B,R){
   const v=runV(A.cfg.st.speed);
   if(R.code==='FOUL'){S.end=Math.min(B.T,2.4);W3.pci.visible=false;W3.zone.visible=false;return}
   const bt=R.code==='HR'&&!R.inside?4:Math.max(1,R.batterTo||1),bOut=R.out&&R.code!=='FC'&&R.code!=='E';
-  S.runners.push({who:'b',from:0,to:bt,v:R.code==='HR'&&!R.inside?5.2:v,t0:0.5,out:bOut});
+  S.runners.push({who:'b',from:0,to:bt,v:R.code==='HR'&&!R.inside?4.4:v,t0:R.code==='HR'&&!R.inside?1.4:0.5,out:bOut});
   for(const m of(R.runnerMoves||[]))S.runners.push({who:m.from-1,from:m.from,to:m.to,v:runV(50),t0:R.air&&R.out?(R.t||0)+0.1:0.15});
   if(R.code==='DP'||R.code==='FC'){const r1=S.runners.find(r=>r.who===0);if(!r1)S.runners.push({who:0,from:1,to:2,v:runV(50),t0:0.15,out:true});else r1.out=true}
   for(const r of S.runners){const d=(r.to-r.from)*BASE_L;r.T=r.t0+runTime(d,r.v,6.5)+(r.to-r.from-1)*0.25;end=Math.max(end,Math.min(r.T,R.code==='HR'&&!R.inside?7:r.T)+0.2)}
-  S.end=Math.min(end,R.code==='HR'&&!R.inside?7.5:14);
+  S.end=Math.min(end,R.code==='HR'&&!R.inside?8:14);
   // the landing spot for fly balls
   if(B.land&&B.apex>4&&R.code!=='HR'){W3.land.visible=true;W3.land.position.set(B.land[0],0.03,B.land[1])}
   W3.pci.visible=false;W3.zone.visible=false;W3.mark.visible=false;
@@ -376,7 +383,7 @@ function dropBat(){const b=G.batter;if(!b.bat)return;const m=b.bat.clone();W3.sc
   m.position.copy(p).setY(0.04);m.rotation.set(Math.PI/2,0,rnd(0,6.28))}
 function flipTick(dt){const F=G&&G.flip;if(!F)return;F.v.y-=9.8*dt;F.m.position.addScaledVector(F.v,dt);F.m.rotation.x+=F.w*dt;F.m.rotation.z+=F.w*0.3*dt;if(F.m.position.y<0.05){F.m.position.y=0.05;F.m.rotation.set(Math.PI/2,0,F.m.rotation.z);G.flip=null}}
 /* ---- result of the plate appearance ---- */
-const CODE_TEXT={K:'Strikeout',BB:'Walk',HBP:'Hit by pitch','1B':'Single','2B':'Double','3B':'Triple',HR:'Home run!',GO:'Ground out',FO:'Fly out',LO:'Line out',PO:'Pop out',DP:'Double play',FC:'Fielder’s choice',E:'Safe on error',SF:'Sacrifice fly'};
+const CODE_TEXT={K:'Strikeout',BB:'Walk',HBP:'Hit by pitch','1B':'Single','2B':'Double','3B':'Triple',HR:'Home run!',GO:'Ground out',FO:'Fly out',LO:'Line out',PO:'Pop out',DP:'Double play',FC:'Fielder’s choice',E:'Safe on error',SF:'Sacrifice fly',SH:'Sacrifice bunt'};
 function endPA(r){
   if(A.ended)return;A.ended=true;
   const sit=A.cfg.sit||{outs:0,bases:[null,null,null]};
@@ -400,6 +407,7 @@ function rewardMeters(res){const c=res.code,hit={'1B':[60,20],'2B':[70,30],'3B':
   $('fire').hidden=MET.streak<2;renderMeters()}
 function finishPlay(){const R=A.R;
   if(R.code==='FOUL'){foulBall();return}
+  if(A.contact&&A.contact.bunt&&(R.code==='GO'||R.code==='FC')&&R.out===1&&(R.runnerMoves||[]).length&&R.code==='GO'){R.code='SH';R.desc='lays down a sacrifice bunt'}
   const out={code:R.code==='HR'?'HR':R.code,out:R.out,bases:R.bases,runs:R.runs,rbi:R.rbi,desc:R.desc,hit:R.hit,err:R.err,runnerMoves:R.runnerMoves};
   if(A.practice){A.state='done';A.tDone=now();A.res=out;showCall(CODE_TEXT[R.code]||R.code,false,R.hit?'w':'l');say(contactLine());
     rewardMeters(out);if(R.code==='HR')showCall('Home run! '+Math.round(distFt())+' ft',false,'w');
@@ -417,7 +425,7 @@ function stepAB(dt){
   if(A.slowUntil&&t>A.slowUntil){A.slowUntil=0;slowMo(false)}
   if(A.state==='ready'){if(t>=A.t0)deliver()}
   if(A.state==='wind'){
-    if(!A.loaded&&t>=A.tLoad){A.loaded=true;const b=G.batter;b.pose=null;b.startSwing('ld',0);b.swing.hold=true}
+    if(!A.loaded&&t>=A.tLoad){A.loaded=true;const b=G.batter;b.pose=null;b.startSwing(swingType==='bunt'?'bn':'ld',0);b.swing.hold=true}
     if(A.swing&&!A.judged&&t>=A.swing.t+SWT*1000){A.judged=true;A.whiff=true;say('Way too early: wait until the ball is on its way.');showGrades({qt:9,dt:-1,d:9,ox:0,oy:0})}
     if(t>=A.tRel)release()}
   if(A.state==='wind'||A.state==='pitch'){const b=G.batter;if(!A.loaded&&A.state==='pitch'){A.loaded=true;b.pose=null;b.startSwing('ld',0.3);b.swing.hold=true}}
@@ -425,9 +433,11 @@ function stepAB(dt){
     const p=A.pitch,tt=(t-A.tR)/1000;
     if(A.aimT&&!A.swing&&aimMode!=='manual'){const k=Math.min(1,dt*(aimMode==='auto'?9:2.8));A.pci.x+=(A.aimT.x-A.pci.x)*k;A.pci.y+=(A.aimT.y-A.pci.y)*k}
     if(!A.read&&t>=A.tRead){A.read=true;$('ptype').textContent=PT[p.type].s;$('ptype').style.color=PT[p.type].c;$('ptype').hidden=false}
-    if(A.swing&&!A.judged&&t>=A.swing.t+SWT*1000){A.judged=true;const c=judgeContact();
+    if(A.swing&&A.swing.checked&&!A.judged&&t>=A.swing.t+SWT*1000){A.judged=true;if(!A.swing.went)A.swing=null;else A.whiff=true}
+    if(A.swing&&!A.judged&&t>=A.swing.t+(A.swing.type==='bunt'?0.06:SWT)*1000){A.judged=true;const c=judgeContact();
       if(c.kind==='play'){const hp=pitchPos(p,pitchTimeAtZ(p,-0.28));W3.ball.position.copy(hp);inPlay(c);return}
-      if(c.kind==='foul'){if(c.tip&&A.count[1]>=2&&Math.random()<0.3){sndGlove(0.6);umpire('Strike three!');showMark(pitchPos(p,pitchTimeAtZ(p,0)),0xF28A78);endPA({code:'K',tip:true});return}
+      if(c.kind==='foul'){if(A.swing.type==='bunt'&&A.count[1]>=2){sndBat(0.2,0.1);umpire('Strike three!');showCall('Foul bunt, strike three',false,'l');endPA({code:'K'});return}
+        if(c.tip&&A.count[1]>=2&&Math.random()<0.3){sndGlove(0.6);umpire('Strike three!');showMark(pitchPos(p,pitchTimeAtZ(p,0)),0xF28A78);endPA({code:'K',tip:true});return}
         say('Foul: just got a piece of it ('+missWhy(Object.assign({},c,{qt:c.qt>1?c.qt:0}))+')');sndBat(0.25,0.1);const B=simBall(55+Math.random()*25,rnd(-10,70),(Math.random()<0.5?-1:1)*rnd(50,80)*Math.PI/180,PARK,{x0:0,y0:c.by,z0:-0.3});A.B=B;A.R={code:'FOUL'};A.state='play';A.tP=now();planPlay(B,A.R);return}
       // swing and a miss
       A.whiff=true;say('Swing and a miss · '+missWhy(c));}

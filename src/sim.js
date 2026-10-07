@@ -48,7 +48,7 @@ function makePitcher(lv,teamPit,charId){const L=LEVELS[lv],ovr=clamp(Math.round(
 /* cfg: {lv, me:{name,id,st}, my:{team}, opp:{team}, home: true if my team is home, live: play your at-bats, rival pitcher?}
    returns a promise of the box score */
 function emptyLine(){return{pa:0,ab:0,h:0,d:0,t:0,hr:0,rbi:0,r:0,bb:0,k:0,sb:0}}
-function lineAdd(L,res){L.pa++;const c=res.code;if(c!=='BB'&&c!=='HBP'&&c!=='SF')L.ab++;if(['1B','2B','3B','HR'].includes(c))L.h++;if(c==='2B')L.d++;if(c==='3B')L.t++;if(c==='HR')L.hr++;if(c==='BB'||c==='HBP')L.bb++;if(c==='K')L.k++;L.rbi+=res.rbi||0}
+function lineAdd(L,res){L.pa++;const c=res.code;if(c!=='BB'&&c!=='HBP'&&c!=='SF'&&c!=='SH')L.ab++;if(['1B','2B','3B','HR'].includes(c))L.h++;if(c==='2B')L.d++;if(c==='3B')L.t++;if(c==='HR')L.hr++;if(c==='BB'||c==='HBP')L.bb++;if(c==='K')L.k++;L.rbi+=res.rbi||0}
 async function playGame(cfg){
   const L=LEVELS[cfg.lv],inn=cfg.innings||L.inn,meSpot=cfg.spot||L.spot;
   const teams=cfg.home?[cfg.opp.team,cfg.my.team]:[cfg.my.team,cfg.opp.team];// [away, home]

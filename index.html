@@ -380,7 +380,7 @@ textarea{width:100%;background:var(--panel-2);border:1px solid var(--line);borde
     <div class="row between ctl">
       <div class="lcol">
         <div id="meters"><button id="turboBtn" disabled><span>Turbo</span><span class="pips"></span></button><button id="blastBtn" disabled><span>Big Blast</span><b><i></i></b></button></div>
-        <div id="stype"><button data-t="contact">Contact</button><button data-t="normal">Normal</button><button data-t="power">Power</button></div>
+        <div id="stype"><button data-t="contact">Contact</button><button data-t="normal">Normal</button><button data-t="power">Power</button><button data-t="bunt">Bunt</button></div>
       </div>
       <button id="swingBtn" aria-label="Swing">Swing</button>
     </div>
@@ -710,6 +710,15 @@ const K=(t,o)=>Object.assign({t},o);
    weight back, small leg lift); stride lands; hips fire first and the knob leads, the bat flattens behind; contact out in front
    with the bat square to the pitch, back heel up; extension through the ball; follow-through over the front shoulder. */
 const STANCE={pel:-6,sh:-16,pitch:0.2,roll:-4,dp:0.85,hand:[-14,140,12],rd:[-0.32,0.86,-0.4],pole:[-0.6,-0.65,-0.3],L:[0,0,0],gw:1,fl:[5,0,1],fr:[-5,0,-1],hs:[-2,0,0]};
+/* batting stance styles: tweaks on the classic stance (the load and swing are shared) */
+const STANCES={
+  classic:{n:'Classic',d:'Balanced, hands by the back shoulder'},
+  open:{n:'Open',d:'Front foot pulled back, chest toward the pitcher',set:{pel:6,sh:-4,fl:[3,0,-14],fr:[-5,0,-1]}},
+  crouch:{n:'Crouched',d:'Low and compact, small strike zone look',set:{dp:1.5,pitch:0.34,hand:[-12,130,14]}},
+  high:{n:'High hands',d:'Hands up high, bat wagging over the head',set:{hand:[-12,158,6],rd:[-0.2,0.95,-0.25]}},
+  wide:{n:'Wide',d:'Feet spread, no stride, all hips',set:{fl:[18,0,1],fr:[-16,0,-1],dp:1.25}}};
+const STANCE0=JSON.parse(JSON.stringify(STANCE));
+function applyStance(id){const S=STANCES[id]||STANCES.classic;Object.assign(STANCE,JSON.parse(JSON.stringify(STANCE0)),S.set?JSON.parse(JSON.stringify(S.set)):{});const k0=SWINGS.ld.keys[0];for(const k in STANCE)k0[k]=Array.isArray(STANCE[k])?STANCE[k].slice():STANCE[k]}
 const SWINGS={
   ld:{dur:0.55,cf:1,keys:[ // the load, timed off the pitcher's release
     K(0,   STANCE),
@@ -739,6 +748,10 @@ const SWINGS={
     K(0.35,{body:-80,pel:-10,sh:-25,pitch:0.1, roll:-8,dp:1.0, hand:[-50,150,-10],rd:[-0.2,0.9,-0.3],pole:[-0.6,-0.4,-0.6],L:[40,130,16],gw:0,fl:[-12,0,24],fr:[12,0,-6],hs:[0,0,6]}),
     K(0.6, {body:-50,pel:40, sh:30, pitch:0.35,roll:-10,dp:1.1,hand:[-4,166,40], rd:[0.2,0.9,0.35],pole:[-0.8,-0.2,-0.3],L:[28,116,6], gw:0,fl:[-12,0,50],fr:[12,4,-6],hs:[0,0,22]}),
     K(1,   {body:-20,pel:60, sh:60, pitch:0.45,roll:0, dp:1.0, hand:[28,100,36],rd:[0.4,-0.8,0.45],pole:[-0.2,-0.9,0.4],L:[24,110,0], gw:0,fl:[-12,0,50],fr:[10,10,30],hs:[0,0,30]})]},
+  /* bunt: square around to face the pitcher, bat flat out over the plate, top hand slid up the barrel */
+  bn:{dur:0.4,cf:1,keys:[
+    K(0,{body:0, pel:-6,sh:-16,pitch:0.2,roll:-4,dp:0.85,hand:[-14,140,12],rd:[-0.32,0.86,-0.4],pole:[-0.6,-0.65,-0.3],L:[0,0,0],gw:1,fl:[5,0,1],fr:[-5,0,-1],hs:[-2,0,0]}),
+    K(1,{body:70,pel:8,sh:10,pitch:0.32,roll:0,dp:1.6,hand:[-8,124,40],rd:[-0.98,0.12,0.12],pole:[-0.6,-0.7,0.2],L:[0,0,0],gw:1,fl:[8,0,2],fr:[-2,0,8],hs:[0,0,0]})]},
   /* catcher: squat, glove out as a target */
   cr:{dur:1,cf:1,keys:[K(0,{body:0,pel:0,sh:0,pitch:0.42,roll:0,dp:3.4,hand:[-30,96,24],rd:[0,-0.3,0.95],pole:[-0.7,-0.6,0],L:[16,112,52],gw:0,fl:[16,0,2],fr:[-16,0,2],hs:[0,0,4]}),K(1,{body:0,pel:0,sh:0,pitch:0.42,roll:0,dp:3.4,hand:[-30,96,24],rd:[0,-0.3,0.95],pole:[-0.7,-0.6,0],L:[16,112,52],gw:0,fl:[16,0,2],fr:[-16,0,2],hs:[0,0,4]})]},
   /* fielder's ready crouch, glove open */
@@ -1178,7 +1191,7 @@ function sndTick(){sndResume();if(!sndReady())return;tone(1200,0.06,0.4,'square'
 /* ================= feel: settings, tap calibration, performance, debug overlay, pitch readability,
    sitting on a zone, and home run replays ================= */
 const OPT_KEY='bg-opt';
-const OPT=Object.assign({lat:0,quality:'auto',haptics:true,cam:'normal',speed:'normal',debug:false,replays:true},(()=>{try{return JSON.parse(localStorage.getItem(OPT_KEY))||{}}catch(e){return{}}})());
+const OPT=Object.assign({stance:'classic',lat:0,quality:'auto',haptics:true,cam:'normal',speed:'normal',debug:false,replays:true},(()=>{try{return JSON.parse(localStorage.getItem(OPT_KEY))||{}}catch(e){return{}}})());
 function saveOpt(){try{localStorage.setItem(OPT_KEY,JSON.stringify(OPT))}catch(e){}}
 const SPEEDS={slower:0.86,normal:1,faster:1.12};
 const CAMH={low:-0.25,normal:0,high:0.35};
@@ -1190,6 +1203,7 @@ function renderSettings(){
   $('setBody').innerHTML=
     '<div class="setrow"><span>Touch delay<small>Your phone’s delay between touching the glass and the game hearing it. Calibrate it once.</small></span><div class="seg"><b class="num">'+Math.round(OPT.lat)+' ms</b><button id="calGo">Calibrate</button></div></div>'+
     row('Aim','aim',[['auto','Auto'],['lock','Lock-on'],['manual','Manual']],'Auto: you only time the swing.')+
+    row('Batting stance','stance',Object.entries(STANCES).map(([k,v])=>[k,v.n]),(STANCES[OPT.stance]||STANCES.classic).d)+
     row('Pitch speed','speed',[['slower','Slower'],['normal','Normal'],['faster','Faster']])+
     row('Graphics','quality',[['auto','Auto'],['high','High'],['low','Low']],'Low turns off shadows and thins the crowd for a smoother game.')+
     row('Camera','cam',[['low','Low'],['normal','Normal'],['high','High']])+
@@ -1198,7 +1212,7 @@ function renderSettings(){
     row('Timing readout','debug',[[true,'On'],[false,'Off']],'Shows your timing in milliseconds after every swing.');
   $('setBody').querySelectorAll('button[data-k]').forEach(b=>b.onclick=()=>{const k=b.dataset.k;let v=b.dataset.v;if(v==='true')v=true;else if(v==='false')v=false;
     if(k==='aim'){aimMode=v;try{localStorage.setItem('bg-aim',v)}catch(_){}renderAim()}else OPT[k]=v;
-    saveOpt();if(k==='quality')applyQuality();renderSettings()});
+    saveOpt();if(k==='quality')applyQuality();if(k==='stance')applyStance(v);renderSettings()});
   $('calGo').onclick=startCalibration;
   // the aim mode lives in its own key
   $('setBody').querySelectorAll('button[data-k=aim]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.v===aimMode)))}
@@ -1269,6 +1283,8 @@ function replayCam(){const bp=W3.ball.position,far=Math.hypot(bp.x,bp.z),t=(now(
   return[new T.Vector3(-3+bp.x*0.2,2+Math.min(bp.y,25)*0.3,6+far*0.05),new T.Vector3(bp.x,bp.y*0.9,bp.z)]}
 /* a broadcast cut on big contact: half a second from the side, then the follow camera */
 function cutCam(){return[new T.Vector3(7,1.4,-5),new T.Vector3(W3.ball.position.x*0.5-0.4,1.1,W3.ball.position.z*0.3)]}
+
+applyStance(OPT.stance);
 
 
 /* ================= roster ================= */
@@ -1360,7 +1376,7 @@ let G=null;// the loaded scene: {park, batter, pitcher, catcher, fielders[], run
 let A=null;// the current plate appearance
 const SWT=SWINGS.sw.dur*SWINGS.sw.cf;// tap to contact, seconds
 const BATTER_X=-0.86;
-const STYPES={contact:{n:'Contact',pci:1.28,ev:0.9,tw:1.18},normal:{n:'Normal',pci:1,ev:1,tw:1},power:{n:'Power',pci:0.74,ev:1.09,tw:0.85}};
+const STYPES={contact:{n:'Contact',pci:1.28,ev:0.9,tw:1.18},normal:{n:'Normal',pci:1,ev:1,tw:1},power:{n:'Power',pci:0.74,ev:1.09,tw:0.85},bunt:{n:'Bunt',pci:1.4,ev:0.4,tw:2.4}};
 let swingType='normal';
 /* The Bigs-style meters, per game. Turbo: up to 3 charges, earned by taking balls, fouling pitches off and getting hits;
    spend one for a turbo swing (bigger circle, wider timing, harder contact). Big Blast: filled by hits and RBIs; when full,
@@ -1448,6 +1464,8 @@ function contactOf(bx,by,px,py,dt,st,styp,p){
   const ox=(bx-px)/rx,oy=(by-py)/ry,d=Math.hypot(ox,oy),qt=Math.abs(dt)/tw,base={d,qt,ox,oy,dt};
   if(d>1.22||qt>1.45)return Object.assign(base,{kind:'whiff'});
   if(d>1||qt>1){return Object.assign(base,Math.random()<0.55?{kind:'foul',tip:Math.random()<0.25}:{kind:'whiff'})}
+  if(styp==='bunt'){const ev=clamp(rnd(26,40)-qt*6,18,45),la=clamp(-6-oy*14+gauss()*4,-25,22),spray=clamp(ox*28+gauss()*7,-38,38);
+    return Object.assign(base,{kind:'play',ev,la,spray:spray*Math.PI/180,q:0.2,bunt:true})}
   const perfect=qt<=0.35&&d<=0.38;
   let q=clamp(1-d*d*0.5-qt*qt*0.55,0,1);if(perfect)q=Math.max(q,0.93);
   const top=(80+st.power*0.27)*S.ev*(MET.armT?1.07:1),ev=clamp(perfect?top*rnd(0.98,1.03):top*(0.58+0.42*q)+gauss()*2.5,35,121);
@@ -1501,16 +1519,21 @@ function release(){
 }
 /* the swing: tDown is when the finger touched (taps are judged from the touch, not the lift) */
 function swingAt(tDown){
+  if(A&&A.swing&&!A.judged&&!A.swing.checked&&swingType!=='bunt'&&now()-A.swing.real<170){checkSwing();return}
   if(!A||A.swing)return;tDown-=OPT.lat||0;
   if(A.state==='ready'){say('Wait for the pitch, then tap as it gets close.');return}
   if(A.state!=='pitch'&&A.state!=='wind')return;
-  A.swing={t:tDown,type:swingType,pci:{x:A.pci.x,y:A.pci.y}};
+  A.swing={t:tDown,real:now(),type:swingType,pci:{x:A.pci.x,y:A.pci.y}};
+  if(swingType==='bunt'){A.swing.t=tDown;if(OPT.haptics)hapticTap();return}
   const b=G.batter,el=Math.max(0,(now()-tDown)/1000);
   // steer the bat toward the PCI: the hands move with it (only partly, the swing still has its shape)
   const off=steerFor(A.swing.pci.x,A.swing.pci.y);
   A.swing.turbo=MET.armT;A.swing.blast=MET.armB;
   b.pose=null;b.startSwing('sw',Math.min(el,SWT*0.9),off,1);if(OPT.haptics)hapticTap();if(MET.armT){b.bat&&b.bat.userData.wood.emissive.setHex(0xFF6A00)}
 }
+/* holding up: the bat comes back; if it went past halfway the umpire rules it a swing */
+function checkSwing(){const s=A.swing,u=(now()-s.real)/1000/SWT;s.checked=true;s.went=u>0.5;const b=G.batter;b.swing=null;b.post={P:b.lastP||STANCE,t:0};b.pose='stance';
+  say(s.went?'Checked… but he went around!':'Held up.')}
 function steerFor(x,y){const b=G.batter;if(!G.sweet)return null;
   // the sweet spot nominally sits at G.sweet (world, relative to the batter); move the hands so it lands on (x,y, contact plane)
   const want=new T.Vector3(x,y,-0.25).sub(b.pos),d=want.sub(G.sweet);
@@ -1518,7 +1541,7 @@ function steerFor(x,y){const b=G.batter;if(!G.sweet)return null;
   const k=100/(PSCALE*b.sz);
   return{hand:[-d.z*k*0.7,d.y*k*0.9,d.x*k*0.85],rd:[0,-d.y*0.6,0]}}
 function judgeContact(){
-  const s=A.swing,p=A.pitch,tc=s.t+SWT*1000,dt=(tc-A.tCon)/1000;
+  const s=A.swing,p=A.pitch,tc=s.t+(s.type==='bunt'?0.06:SWT)*1000,dt=(tc-A.tCon)/1000;
   const bp=pitchPos(p,pitchTimeAtZ(p,0));
   const res=contactOf(bp.x,bp.y,s.pci.x,s.pci.y,dt,A.cfg.st,s.type,p);showGrades(res);debugSwing(res);
   if(s.turbo){MET.armT=false;MET.turbo=Math.max(0,MET.turbo-100);renderMeters()}
@@ -1565,11 +1588,11 @@ function planPlay(B,R){
   const v=runV(A.cfg.st.speed);
   if(R.code==='FOUL'){S.end=Math.min(B.T,2.4);W3.pci.visible=false;W3.zone.visible=false;return}
   const bt=R.code==='HR'&&!R.inside?4:Math.max(1,R.batterTo||1),bOut=R.out&&R.code!=='FC'&&R.code!=='E';
-  S.runners.push({who:'b',from:0,to:bt,v:R.code==='HR'&&!R.inside?5.2:v,t0:0.5,out:bOut});
+  S.runners.push({who:'b',from:0,to:bt,v:R.code==='HR'&&!R.inside?4.4:v,t0:R.code==='HR'&&!R.inside?1.4:0.5,out:bOut});
   for(const m of(R.runnerMoves||[]))S.runners.push({who:m.from-1,from:m.from,to:m.to,v:runV(50),t0:R.air&&R.out?(R.t||0)+0.1:0.15});
   if(R.code==='DP'||R.code==='FC'){const r1=S.runners.find(r=>r.who===0);if(!r1)S.runners.push({who:0,from:1,to:2,v:runV(50),t0:0.15,out:true});else r1.out=true}
   for(const r of S.runners){const d=(r.to-r.from)*BASE_L;r.T=r.t0+runTime(d,r.v,6.5)+(r.to-r.from-1)*0.25;end=Math.max(end,Math.min(r.T,R.code==='HR'&&!R.inside?7:r.T)+0.2)}
-  S.end=Math.min(end,R.code==='HR'&&!R.inside?7.5:14);
+  S.end=Math.min(end,R.code==='HR'&&!R.inside?8:14);
   // the landing spot for fly balls
   if(B.land&&B.apex>4&&R.code!=='HR'){W3.land.visible=true;W3.land.position.set(B.land[0],0.03,B.land[1])}
   W3.pci.visible=false;W3.zone.visible=false;W3.mark.visible=false;
@@ -1627,7 +1650,7 @@ function dropBat(){const b=G.batter;if(!b.bat)return;const m=b.bat.clone();W3.sc
   m.position.copy(p).setY(0.04);m.rotation.set(Math.PI/2,0,rnd(0,6.28))}
 function flipTick(dt){const F=G&&G.flip;if(!F)return;F.v.y-=9.8*dt;F.m.position.addScaledVector(F.v,dt);F.m.rotation.x+=F.w*dt;F.m.rotation.z+=F.w*0.3*dt;if(F.m.position.y<0.05){F.m.position.y=0.05;F.m.rotation.set(Math.PI/2,0,F.m.rotation.z);G.flip=null}}
 /* ---- result of the plate appearance ---- */
-const CODE_TEXT={K:'Strikeout',BB:'Walk',HBP:'Hit by pitch','1B':'Single','2B':'Double','3B':'Triple',HR:'Home run!',GO:'Ground out',FO:'Fly out',LO:'Line out',PO:'Pop out',DP:'Double play',FC:'Fielder’s choice',E:'Safe on error',SF:'Sacrifice fly'};
+const CODE_TEXT={K:'Strikeout',BB:'Walk',HBP:'Hit by pitch','1B':'Single','2B':'Double','3B':'Triple',HR:'Home run!',GO:'Ground out',FO:'Fly out',LO:'Line out',PO:'Pop out',DP:'Double play',FC:'Fielder’s choice',E:'Safe on error',SF:'Sacrifice fly',SH:'Sacrifice bunt'};
 function endPA(r){
   if(A.ended)return;A.ended=true;
   const sit=A.cfg.sit||{outs:0,bases:[null,null,null]};
@@ -1651,6 +1674,7 @@ function rewardMeters(res){const c=res.code,hit={'1B':[60,20],'2B':[70,30],'3B':
   $('fire').hidden=MET.streak<2;renderMeters()}
 function finishPlay(){const R=A.R;
   if(R.code==='FOUL'){foulBall();return}
+  if(A.contact&&A.contact.bunt&&(R.code==='GO'||R.code==='FC')&&R.out===1&&(R.runnerMoves||[]).length&&R.code==='GO'){R.code='SH';R.desc='lays down a sacrifice bunt'}
   const out={code:R.code==='HR'?'HR':R.code,out:R.out,bases:R.bases,runs:R.runs,rbi:R.rbi,desc:R.desc,hit:R.hit,err:R.err,runnerMoves:R.runnerMoves};
   if(A.practice){A.state='done';A.tDone=now();A.res=out;showCall(CODE_TEXT[R.code]||R.code,false,R.hit?'w':'l');say(contactLine());
     rewardMeters(out);if(R.code==='HR')showCall('Home run! '+Math.round(distFt())+' ft',false,'w');
@@ -1668,7 +1692,7 @@ function stepAB(dt){
   if(A.slowUntil&&t>A.slowUntil){A.slowUntil=0;slowMo(false)}
   if(A.state==='ready'){if(t>=A.t0)deliver()}
   if(A.state==='wind'){
-    if(!A.loaded&&t>=A.tLoad){A.loaded=true;const b=G.batter;b.pose=null;b.startSwing('ld',0);b.swing.hold=true}
+    if(!A.loaded&&t>=A.tLoad){A.loaded=true;const b=G.batter;b.pose=null;b.startSwing(swingType==='bunt'?'bn':'ld',0);b.swing.hold=true}
     if(A.swing&&!A.judged&&t>=A.swing.t+SWT*1000){A.judged=true;A.whiff=true;say('Way too early: wait until the ball is on its way.');showGrades({qt:9,dt:-1,d:9,ox:0,oy:0})}
     if(t>=A.tRel)release()}
   if(A.state==='wind'||A.state==='pitch'){const b=G.batter;if(!A.loaded&&A.state==='pitch'){A.loaded=true;b.pose=null;b.startSwing('ld',0.3);b.swing.hold=true}}
@@ -1676,9 +1700,11 @@ function stepAB(dt){
     const p=A.pitch,tt=(t-A.tR)/1000;
     if(A.aimT&&!A.swing&&aimMode!=='manual'){const k=Math.min(1,dt*(aimMode==='auto'?9:2.8));A.pci.x+=(A.aimT.x-A.pci.x)*k;A.pci.y+=(A.aimT.y-A.pci.y)*k}
     if(!A.read&&t>=A.tRead){A.read=true;$('ptype').textContent=PT[p.type].s;$('ptype').style.color=PT[p.type].c;$('ptype').hidden=false}
-    if(A.swing&&!A.judged&&t>=A.swing.t+SWT*1000){A.judged=true;const c=judgeContact();
+    if(A.swing&&A.swing.checked&&!A.judged&&t>=A.swing.t+SWT*1000){A.judged=true;if(!A.swing.went)A.swing=null;else A.whiff=true}
+    if(A.swing&&!A.judged&&t>=A.swing.t+(A.swing.type==='bunt'?0.06:SWT)*1000){A.judged=true;const c=judgeContact();
       if(c.kind==='play'){const hp=pitchPos(p,pitchTimeAtZ(p,-0.28));W3.ball.position.copy(hp);inPlay(c);return}
-      if(c.kind==='foul'){if(c.tip&&A.count[1]>=2&&Math.random()<0.3){sndGlove(0.6);umpire('Strike three!');showMark(pitchPos(p,pitchTimeAtZ(p,0)),0xF28A78);endPA({code:'K',tip:true});return}
+      if(c.kind==='foul'){if(A.swing.type==='bunt'&&A.count[1]>=2){sndBat(0.2,0.1);umpire('Strike three!');showCall('Foul bunt, strike three',false,'l');endPA({code:'K'});return}
+        if(c.tip&&A.count[1]>=2&&Math.random()<0.3){sndGlove(0.6);umpire('Strike three!');showMark(pitchPos(p,pitchTimeAtZ(p,0)),0xF28A78);endPA({code:'K',tip:true});return}
         say('Foul: just got a piece of it ('+missWhy(Object.assign({},c,{qt:c.qt>1?c.qt:0}))+')');sndBat(0.25,0.1);const B=simBall(55+Math.random()*25,rnd(-10,70),(Math.random()<0.5?-1:1)*rnd(50,80)*Math.PI/180,PARK,{x0:0,y0:c.by,z0:-0.3});A.B=B;A.R={code:'FOUL'};A.state='play';A.tP=now();planPlay(B,A.R);return}
       // swing and a miss
       A.whiff=true;say('Swing and a miss · '+missWhy(c));}
@@ -1848,7 +1874,7 @@ function makePitcher(lv,teamPit,charId){const L=LEVELS[lv],ovr=clamp(Math.round(
 /* cfg: {lv, me:{name,id,st}, my:{team}, opp:{team}, home: true if my team is home, live: play your at-bats, rival pitcher?}
    returns a promise of the box score */
 function emptyLine(){return{pa:0,ab:0,h:0,d:0,t:0,hr:0,rbi:0,r:0,bb:0,k:0,sb:0}}
-function lineAdd(L,res){L.pa++;const c=res.code;if(c!=='BB'&&c!=='HBP'&&c!=='SF')L.ab++;if(['1B','2B','3B','HR'].includes(c))L.h++;if(c==='2B')L.d++;if(c==='3B')L.t++;if(c==='HR')L.hr++;if(c==='BB'||c==='HBP')L.bb++;if(c==='K')L.k++;L.rbi+=res.rbi||0}
+function lineAdd(L,res){L.pa++;const c=res.code;if(c!=='BB'&&c!=='HBP'&&c!=='SF'&&c!=='SH')L.ab++;if(['1B','2B','3B','HR'].includes(c))L.h++;if(c==='2B')L.d++;if(c==='3B')L.t++;if(c==='HR')L.hr++;if(c==='BB'||c==='HBP')L.bb++;if(c==='K')L.k++;L.rbi+=res.rbi||0}
 async function playGame(cfg){
   const L=LEVELS[cfg.lv],inn=cfg.innings||L.inn,meSpot=cfg.spot||L.spot;
   const teams=cfg.home?[cfg.opp.team,cfg.my.team]:[cfg.my.team,cfg.opp.team];// [away, home]

@@ -68,6 +68,15 @@ const K=(t,o)=>Object.assign({t},o);
    weight back, small leg lift); stride lands; hips fire first and the knob leads, the bat flattens behind; contact out in front
    with the bat square to the pitch, back heel up; extension through the ball; follow-through over the front shoulder. */
 const STANCE={pel:-6,sh:-16,pitch:0.2,roll:-4,dp:0.85,hand:[-14,140,12],rd:[-0.32,0.86,-0.4],pole:[-0.6,-0.65,-0.3],L:[0,0,0],gw:1,fl:[5,0,1],fr:[-5,0,-1],hs:[-2,0,0]};
+/* batting stance styles: tweaks on the classic stance (the load and swing are shared) */
+const STANCES={
+  classic:{n:'Classic',d:'Balanced, hands by the back shoulder'},
+  open:{n:'Open',d:'Front foot pulled back, chest toward the pitcher',set:{pel:6,sh:-4,fl:[3,0,-14],fr:[-5,0,-1]}},
+  crouch:{n:'Crouched',d:'Low and compact, small strike zone look',set:{dp:1.5,pitch:0.34,hand:[-12,130,14]}},
+  high:{n:'High hands',d:'Hands up high, bat wagging over the head',set:{hand:[-12,158,6],rd:[-0.2,0.95,-0.25]}},
+  wide:{n:'Wide',d:'Feet spread, no stride, all hips',set:{fl:[18,0,1],fr:[-16,0,-1],dp:1.25}}};
+const STANCE0=JSON.parse(JSON.stringify(STANCE));
+function applyStance(id){const S=STANCES[id]||STANCES.classic;Object.assign(STANCE,JSON.parse(JSON.stringify(STANCE0)),S.set?JSON.parse(JSON.stringify(S.set)):{});const k0=SWINGS.ld.keys[0];for(const k in STANCE)k0[k]=Array.isArray(STANCE[k])?STANCE[k].slice():STANCE[k]}
 const SWINGS={
   ld:{dur:0.55,cf:1,keys:[ // the load, timed off the pitcher's release
     K(0,   STANCE),
@@ -97,6 +106,10 @@ const SWINGS={
     K(0.35,{body:-80,pel:-10,sh:-25,pitch:0.1, roll:-8,dp:1.0, hand:[-50,150,-10],rd:[-0.2,0.9,-0.3],pole:[-0.6,-0.4,-0.6],L:[40,130,16],gw:0,fl:[-12,0,24],fr:[12,0,-6],hs:[0,0,6]}),
     K(0.6, {body:-50,pel:40, sh:30, pitch:0.35,roll:-10,dp:1.1,hand:[-4,166,40], rd:[0.2,0.9,0.35],pole:[-0.8,-0.2,-0.3],L:[28,116,6], gw:0,fl:[-12,0,50],fr:[12,4,-6],hs:[0,0,22]}),
     K(1,   {body:-20,pel:60, sh:60, pitch:0.45,roll:0, dp:1.0, hand:[28,100,36],rd:[0.4,-0.8,0.45],pole:[-0.2,-0.9,0.4],L:[24,110,0], gw:0,fl:[-12,0,50],fr:[10,10,30],hs:[0,0,30]})]},
+  /* bunt: square around to face the pitcher, bat flat out over the plate, top hand slid up the barrel */
+  bn:{dur:0.4,cf:1,keys:[
+    K(0,{body:0, pel:-6,sh:-16,pitch:0.2,roll:-4,dp:0.85,hand:[-14,140,12],rd:[-0.32,0.86,-0.4],pole:[-0.6,-0.65,-0.3],L:[0,0,0],gw:1,fl:[5,0,1],fr:[-5,0,-1],hs:[-2,0,0]}),
+    K(1,{body:70,pel:8,sh:10,pitch:0.32,roll:0,dp:1.6,hand:[-8,124,40],rd:[-0.98,0.12,0.12],pole:[-0.6,-0.7,0.2],L:[0,0,0],gw:1,fl:[8,0,2],fr:[-2,0,8],hs:[0,0,0]})]},
   /* catcher: squat, glove out as a target */
   cr:{dur:1,cf:1,keys:[K(0,{body:0,pel:0,sh:0,pitch:0.42,roll:0,dp:3.4,hand:[-30,96,24],rd:[0,-0.3,0.95],pole:[-0.7,-0.6,0],L:[16,112,52],gw:0,fl:[16,0,2],fr:[-16,0,2],hs:[0,0,4]}),K(1,{body:0,pel:0,sh:0,pitch:0.42,roll:0,dp:3.4,hand:[-30,96,24],rd:[0,-0.3,0.95],pole:[-0.7,-0.6,0],L:[16,112,52],gw:0,fl:[16,0,2],fr:[-16,0,2],hs:[0,0,4]})]},
   /* fielder's ready crouch, glove open */
