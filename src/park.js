@@ -151,7 +151,7 @@ function buildStands(G){
   SB.build(G);
   // the people: a body and a head each, shirt colours mostly in the home team's colour
   // keep the crowd affordable on a phone: at most ~6,000 figures, low-poly heads
-  while(seats.length>6000)seats.splice(Math.floor(Math.random()*seats.length),1);
+  const cap=(typeof lowQ==='function'&&lowQ())?2200:6000;while(seats.length>cap)seats.splice(Math.floor(Math.random()*seats.length),1);
   const n=seats.length,body=new T.InstancedMesh(new T.BoxGeometry(0.44,0.55,0.3),new T.MeshStandardMaterial({roughness:.9}),Math.max(1,n)),head=new T.InstancedMesh(new T.IcosahedronGeometry(0.14,0),new T.MeshStandardMaterial({roughness:.8,flatShading:true}),Math.max(1,n));
   const m4=new T.Matrix4(),c=new T.Color(),home=new T.Color(W3.homeColor||0x2E5FA8),skins=[0xF1C9A5,0xD9A27A,0xA86B45,0x6E4428,0xE8B990];
   const CR=W3.crowd={n,body,head,base:[],ph:[],amp:0};

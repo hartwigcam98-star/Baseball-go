@@ -47,6 +47,8 @@ $('btnNew').onclick=()=>{if(save&&!save.retired){$('btnNew').hidden=true;$('btnN
 $('btnNewConfirm').onclick=()=>openSelect('career');
 $('btnPractice').onclick=()=>openSelect('practice');
 $('btnQuick').onclick=()=>openSelect('quick');
+$('btnSettings').onclick=()=>openSettings();
+$('pmSettings').onclick=()=>openSettings();
 function renderSaveCard(){
   $('installHint').textContent=STANDALONE?'Baseball Go is installed on this device, so your career is kept here. A backup code is still handy if you change phones.'
     :IOS?'Safari can delete website data if you go a week without opening the game. Add it to your Home Screen (Share, then Add to Home Screen) and play from that icon. Copy a backup code first and restore it there.'

@@ -21,9 +21,9 @@ function onContact(pos,ev,barrel){const big=ev>=98;ringBurst(pos,barrel?0xB8FF40
   if(barrel||big){kick(barrel?0.06:0.04);hitStop(barrel?70:45)}haptic(barrel?30:big?20:12);FX.tp=[]}
 function fxTick(dt){
   for(const b of FX.bursts){if(b.t>=1){b.m.visible=false;continue}b.t+=dt/0.25;const e=Math.min(1,b.t);b.m.lookAt(W3.cam.position);b.m.scale.setScalar((0.3+e*1.2)*b.size);b.m.material.opacity=0.9*(1-e)}
-  const tr=FX.trail,live=A&&(A.state==='pitch'||A.state==='play');
+  const tr=FX.trail,live=A&&(A.state==='pitch'||A.state==='play'||A.state==='replay');
   if(W3.ball.visible&&live){const p=W3.ball.position,last=FX.tp[FX.tp.length-1];if(!last||last.distanceToSquared(p)>0.01){FX.tp.push(p.clone());if(FX.tp.length>16)FX.tp.shift()}}else FX.tp=[];
-  const n=FX.tp.length,mx=new T.Matrix4(),c=new T.Color(),base=A&&A.state==='play'?new T.Color(0xFFD23F):new T.Color(0xFFFFFF);
+  const n=FX.tp.length,mx=new T.Matrix4(),c=new T.Color(),base=A&&(A.state==='play'||A.state==='replay')?new T.Color(evColor(A.contact&&A.contact.ev)):A&&A.pitch&&A.read?new T.Color(PT[A.pitch.type].c):new T.Color(0xFFFFFF);
   for(let i=0;i<n;i++){const f=(i+1)/n,s=0.3+0.7*f;mx.makeScale(s,s,s).setPosition(FX.tp[i]);tr.setMatrixAt(i,mx);c.copy(base).multiplyScalar(f*f*0.55);tr.setColorAt(i,c)}
   tr.count=n;tr.instanceMatrix.needsUpdate=true;if(tr.instanceColor)tr.instanceColor.needsUpdate=true;
   if(FX.shake>0)FX.shake-=dt}
@@ -42,3 +42,6 @@ function fireworks(x,y,z,n,cols){if(!FW.pts)return;let c=0;cols=cols||[[1,0.85,0
 function fwTick(dt){if(!FW.pts)return;const pa=FW.pts.geometry.attributes.position,ca=FW.pts.geometry.attributes.color;let i=0;
   for(const p of FW.p){if(p.life>0){p.life-=dt;if(p.delay>0){p.delay-=dt;pa.setXYZ(i,0,-99,0)}else{p.vy-=5*dt;p.vx*=0.985;p.vz*=0.985;p.x+=p.vx*dt;p.y+=p.vy*dt;p.z+=p.vz*dt;pa.setXYZ(i,p.x,p.y,p.z);const f=Math.min(1,p.life);ca.setXYZ(i,p.col[0]*f,p.col[1]*f,p.col[2]*f)}}else pa.setXYZ(i,0,-99,0);i++}
   pa.needsUpdate=true;ca.needsUpdate=true}
+
+/* trail colour by exit velocity: white, yellow, orange, red-hot */
+function evColor(ev){ev=ev||80;return ev<80?0xFFFFFF:ev<95?0xFFE066:ev<105?0xFF9A3D:0xFF3D2E}

@@ -21,7 +21,9 @@ function burst(dur,type,freq,q,gain,when){const c=SND.ctx,t=c.currentTime+(when|
 function tone(freq,dur,gain,type,f1,when){const c=SND.ctx,t=c.currentTime+(when||0),o=c.createOscillator(),g=c.createGain();o.type=type||'sine';o.frequency.setValueAtTime(freq,t);if(f1)o.frequency.exponentialRampToValueAtTime(f1,t+dur);
   g.gain.setValueAtTime(gain,t);g.gain.exponentialRampToValueAtTime(0.0001,t+dur);o.connect(g);g.connect(SND.master);o.start(t);o.stop(t+dur+0.02)}
 /* wood on leather: a barrel is a sharp crack, a jam or a tip is a dull thud */
-function sndBat(pw,q){if(!sndReady())return;q=q||0;const sharp=clamp(q,0,1);
+function sndBat(pw,q,ev){if(!sndReady())return;q=q||0;const sharp=clamp(q,0,1);
+  if(ev&&ev<70){tone(900,0.05,0.25,'square',600);burst(0.04,'bandpass',1800,2,0.3);return}
+  if(ev&&ev>=102){burst(0.5,'bandpass',1500,1.5,0.18,0.06);burst(0.6,'lowpass',500,0.7,0.2,0.12)}
   burst(0.06+sharp*0.05,'bandpass',900+sharp*1800,0.9+sharp,0.5+pw*0.5);burst(0.03,'highpass',3000+sharp*2000,0.7,0.2+sharp*0.5);tone(170+sharp*160,0.09,0.3,'triangle',90);
   if(sharp>0.7)burst(0.25,'bandpass',2400,4,0.12,0.01)}
 function sndGlove(k){if(!sndReady())return;k=clamp(k||0.7,0.2,1.2);burst(0.05,'lowpass',900,0.9,0.6*k);tone(120,0.05,0.35*k,'sine',70)}
@@ -33,3 +35,9 @@ function sndCrowd(a){if(!sndReady())return;const c=SND.ctx,t=c.currentTime,s=c.c
 function sndAmbience(){if(!SND.ambG||!SND.ctx)return;const z=(typeof PARK!=='undefined'&&PARK.crowd)||0.3,target=SND.on?0.03*(0.3+z):0;SND.ambG.gain.setTargetAtTime(target,SND.ctx.currentTime,0.6)}
 function speak(txt,o){if(!SND.on||!window.speechSynthesis)return;try{const u=new SpeechSynthesisUtterance(txt);u.rate=(o&&o.rate)||1.1;u.pitch=(o&&o.pitch)||0.8;u.volume=0.9;u.lang='en-US';speechSynthesis.cancel();speechSynthesis.speak(u)}catch(e){}}
 function umpire(word){speak(word.replace(/[.!]$/,'!'),{rate:1.15,pitch:0.75})}
+
+function sndOoh(){if(!sndReady())return;const c=SND.ctx,t=c.currentTime,s=c.createBufferSource();s.buffer=SND.buf.brown;
+  const f=c.createBiquadFilter();f.type='bandpass';f.Q.value=6;f.frequency.setValueAtTime(330,t);f.frequency.linearRampToValueAtTime(520,t+0.35);f.frequency.linearRampToValueAtTime(380,t+1.3);
+  const g=c.createGain(),z=(typeof PARK!=='undefined'&&PARK.crowd)||0.5,pk=0.9*(0.3+z);g.gain.setValueAtTime(0.0001,t);g.gain.linearRampToValueAtTime(pk,t+0.3);g.gain.exponentialRampToValueAtTime(0.0001,t+1.6);
+  s.connect(f);f.connect(g);g.connect(SND.master);s.start(t,Math.random()*2);s.stop(t+1.7)}
+function sndTick(){sndResume();if(!sndReady())return;tone(1200,0.06,0.4,'square',900)}

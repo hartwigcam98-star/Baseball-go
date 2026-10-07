@@ -8,7 +8,7 @@
     <div class="card">
       <span class="chip" id="careerChip">No save yet</span>
       <div class="row"><button class="go" id="btnContinue" hidden>Continue career</button><button id="btnNew">New career</button><button id="btnNewConfirm" hidden>Start over? Tap to confirm</button></div>
-      <div class="row"><button class="ghost" id="btnPractice">Batting practice</button><button class="ghost" id="btnQuick">Quick game</button></div>
+      <div class="row"><button class="ghost" id="btnPractice">Batting practice</button><button class="ghost" id="btnQuick">Quick game</button><button class="ghost" id="btnSettings">Settings</button></div>
     </div>
     <div class="card">
       <h3>How to hit</h3>
@@ -125,6 +125,11 @@
       <div class="row"><button class="go" id="btwGo" style="flex:1">Step in</button><button class="ghost" id="btwSim">Sim rest of game</button></div>
     </div>
   </div>
-  <div id="pauseMenu" hidden><div class="card"><h3>Paused</h3><p class="muted">Quitting a game in progress means it won’t count.</p><div class="row"><button class="go" id="pmResume" style="flex:1">Resume</button><button class="ghost" id="pmQuit">Quit</button></div></div></div>
+  <div id="pauseMenu" hidden><div class="card"><h3>Paused</h3><p class="muted">Quitting a game in progress means it won’t count.</p><div class="row"><button class="go" id="pmResume" style="flex:1">Resume</button><button class="ghost" id="pmSettings">Settings</button><button class="ghost" id="pmQuit">Quit</button></div></div></div>
+  <div id="dbg" hidden></div>
+  <div id="replayTag" hidden><i></i>Replay <small>tap to skip</small></div>
   <div id="loading" hidden><span id="loadMsg">Loading…</span></div>
 </section>
+
+<div id="settings" hidden><div class="card"><div class="row between"><h3>Settings</h3><button class="go" id="setDone">Done</button></div><div id="setBody"></div></div></div>
+<div id="calib" hidden><div id="calDot"></div><p id="calMsg"></p><button class="ghost" id="calCancel">Cancel</button></div>
