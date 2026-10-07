@@ -77,7 +77,7 @@ function initGL(){
   s.add(W3.hemi=new T.HemisphereLight(0xdfefff,0x5a6b4a,1.2));
   const sun=W3.sun=new T.DirectionalLight(0xfff3dd,2.4);sun.position.set(-30,60,25);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);
   const sc=sun.shadow.camera;sc.left=-40;sc.right=40;sc.top=45;sc.bottom=-45;sc.near=1;sc.far=160;sun.shadow.bias=-0.0005;sun.target.position.set(0,0,-20);s.add(sun);s.add(sun.target);
-  fxInit(s);
+  fxInit(s);fwInit(s);
   W3.ball=new T.Mesh(new T.SphereGeometry(0.037,16,12),new T.MeshStandardMaterial({color:0xF7F4EC,roughness:.5}));W3.ball.castShadow=true;s.add(W3.ball);
   {const seam=new T.Mesh(new T.TorusGeometry(0.03,0.004,4,24),new T.MeshBasicMaterial({color:0xC0392B}));W3.ball.add(seam)}
   W3.bshadow=new T.Mesh(new T.CircleGeometry(0.06,16),new T.MeshBasicMaterial({color:0x000000,transparent:true,opacity:.3,depthWrite:false}));W3.bshadow.rotation.x=-Math.PI/2;s.add(W3.bshadow);
@@ -110,6 +110,17 @@ const SWT=SWINGS.sw.dur*SWINGS.sw.cf;// tap to contact, seconds
 const BATTER_X=-0.86;
 const STYPES={contact:{n:'Contact',pci:1.28,ev:0.9,tw:1.18},normal:{n:'Normal',pci:1,ev:1,tw:1},power:{n:'Power',pci:0.74,ev:1.09,tw:0.85}};
 let swingType='normal';
+/* The Bigs-style meters, per game. Turbo: up to 3 charges, earned by taking balls, fouling pitches off and getting hits;
+   spend one for a turbo swing (bigger circle, wider timing, harder contact). Big Blast: filled by hits and RBIs; when full,
+   arm it and any fair contact that at-bat leaves the yard. */
+const MET={turbo:0,blast:0,armT:false,armB:false,streak:0};
+function resetMeters(){Object.assign(MET,{turbo:0,blast:0,armT:false,armB:false,streak:0});renderMeters()}
+function gainTurbo(n){MET.turbo=clamp(MET.turbo+n,0,300);renderMeters()}
+function gainBlast(n){const was=MET.blast;MET.blast=clamp(MET.blast+n,0,100);if(was<100&&MET.blast>=100){showCall('Big Blast ready!',false,'w');sndCrowd(0.6)}renderMeters()}
+function renderMeters(){const t=$('turboBtn'),b=$('blastBtn');if(!t)return;const ch=Math.floor(MET.turbo/100);
+  t.querySelector('.pips').innerHTML=[0,1,2].map(i=>'<i class="'+(i<ch?'on':'')+'" style="--f:'+clamp((MET.turbo-i*100)/100,0,1)+'"></i>').join('');
+  t.disabled=ch<1&&!MET.armT;t.classList.toggle('armed',MET.armT);
+  b.querySelector('b i').style.width=MET.blast+'%';b.disabled=MET.blast<100&&!MET.armB;b.classList.toggle('ready',MET.blast>=100&&!MET.armB);b.classList.toggle('armed',MET.armB)}
 /* aim assist: auto puts the circle on the pitch (you only time it), lock-on pulls it toward the pitch, manual is all you */
 const AIMS={auto:{n:'Auto',hint:'Tap when the ring closes'},lock:{n:'Lock-on',hint:'The circle drifts to the pitch; drag to help it'},manual:{n:'Manual',hint:'Drag the circle onto the pitch, tap when the ring closes'}};
 let aimMode='auto';try{const m=localStorage.getItem('bg-aim');if(AIMS[m])aimMode=m}catch(_){}
@@ -133,7 +144,7 @@ async function setupScene(cfg){
   G.batter.pose='stance';G.catcher.pose='cr';
   resetPositions();
   // calibrate where the sweet spot is at contact for this batter, so the swing can be steered to the pitch
-  calibrateSwing();
+  calibrateSwing();resetMeters();if(W3.board){W3.board.visible=true}
   $('loading').hidden=true;
 }
 function disposeScene(){const all=[G.batter,G.pitcher,G.catcher,...G.fielders.slice(3),...G.runners];all.forEach(p=>p&&p.dispose(W3.scene));G=null}
@@ -141,6 +152,7 @@ function resetPositions(){
   const b=G.batter;b.pos.set(BATTER_X,0,0.05);b.yaw=Math.PI/2;b.pose='stance';b.swing=null;b.post=null;if(b.bat){b.bat.visible=true}b.mesh.visible=true;
   const p=G.pitcher;p.pos.set(0,0.25,-RUBBER+0.25);p.yaw=0;p.pose='pt';p.poseU=0;p.swing=null;p.post=null;
   const c=G.catcher;c.pos.set(0,0,1.05);c.yaw=Math.PI;c.pose='cr';c.swing=null;
+  for(let i=1;i<=9;i++){const f=G.fielders[i];if(f){f.tilt=0;f.lift=0}}if(G.flip){G.flip=null}slowMo(false);
   for(let i=3;i<=9;i++){const f=G.fielders[i];f.pos.set(FPOS[i][0],0,FPOS[i][1]);f.yaw=Math.atan2(-f.pos.x,-f.pos.z);f.pose='rf';f.swing=null;f.post=null;f.mv={x:f.pos.x,z:f.pos.z,vx:0,vz:0}}
   G.pitcher.mv={x:0,z:-RUBBER+0.25,vx:0,vz:0};G.catcher.mv={x:0,z:1.05,vx:0,vz:0};
 }
@@ -177,8 +189,8 @@ function pitchTimeAtZ(p,z){// solve R.z + v0.z t + a.z t²/2 = z
 /* ---- contact ---- */
 /* bx,by: where the ball crosses the plate; px,py: PCI centre; dt: swing timing error (s, + = late) */
 /* the contact circle's size and the timing window both come from the Contact rating and the swing type */
-function pciR(c,styp){return(0.085+c*0.00085)*STYPES[styp].pci}
-function timingWin(c,styp){return(0.075+c*0.0004)*STYPES[styp].tw}// seconds either side: inside 35% is Perfect, 70% Good
+function pciR(c,styp){return(0.085+c*0.00085)*STYPES[styp].pci*(MET.armT?1.2:1)}
+function timingWin(c,styp){return(0.075+c*0.0004)*STYPES[styp].tw*(MET.armT?1.25:1)}// seconds either side: inside 35% is Perfect, 70% Good
 function contactOf(bx,by,px,py,dt,st,styp,p){
   const S=STYPES[styp],c=st.contact,rx=pciR(c,styp),ry=rx*0.8,tw=timingWin(c,styp);
   const ox=(bx-px)/rx,oy=(by-py)/ry,d=Math.hypot(ox,oy),qt=Math.abs(dt)/tw,base={d,qt,ox,oy,dt};
@@ -186,7 +198,7 @@ function contactOf(bx,by,px,py,dt,st,styp,p){
   if(d>1||qt>1){return Object.assign(base,Math.random()<0.55?{kind:'foul',tip:Math.random()<0.25}:{kind:'whiff'})}
   const perfect=qt<=0.35&&d<=0.38;
   let q=clamp(1-d*d*0.5-qt*qt*0.55,0,1);if(perfect)q=Math.max(q,0.93);
-  const top=(80+st.power*0.27)*S.ev,ev=clamp(perfect?top*rnd(0.98,1.03):top*(0.58+0.42*q)+gauss()*2.5,35,121);
+  const top=(80+st.power*0.27)*S.ev*(MET.armT?1.07:1),ev=clamp(perfect?top*rnd(0.98,1.03):top*(0.58+0.42*q)+gauss()*2.5,35,121);
   // under the ball (circle low) lifts it; over the ball beats it into the ground
   let la=11-oy*34+(by-0.76)*-14+gauss()*(perfect?3:7);if(qt>0.75)la+=gauss()*14;
   // a perfect swing is always squared up: a line drive or a drive in the air, never a dribbler or a pop-up
@@ -206,19 +218,20 @@ function showGrades(c){const g=$('grades');if(!g)return;const t=gradeTiming(c),k
 /* ================= plate appearance flow =================
    cfg: {st (batter ratings), pitcher, sit:{inning,half,outs,bases,score,count}, practice, label, onDone(result)} */
 function startPA(cfg){
-  A={cfg,count:[0,0],pitches:0,state:'ready',t0:now()+rnd(900,1500),pitch:null,swing:null,log:[],res:null,practice:!!cfg.practice,ptSeen:[]};
+  A={cfg,count:[0,0],pitches:0,state:'ready',t0:now()+rnd(700,1100),pitch:null,swing:null,log:[],res:null,practice:!!cfg.practice,ptSeen:[]};
   resetPositions();placeRunners(cfg.sit?cfg.sit.bases:null);
   W3.mark.visible=false;W3.land.visible=false;W3.ball.visible=true;FX.tp=[];
   A.pci={x:0,y:0.76};W3.pci.visible=true;W3.zone.visible=true;
   renderHUD();renderAim();say(cfg.intro||AIMS[aimMode].hint+'.');
 }
-function nextPitchSoon(ms){A.state='ready';A.t0=now()+(ms||rnd(1200,1900));A.pitch=null;A.swing=null;A.contact=null;A.judged=false;A.whiff=false;A.foulPlay=false;A.B=null;A.R=null;A.script=null;
+function nextPitchSoon(ms){A.state='ready';A.t0=now()+(ms||rnd(800,1300));A.pitch=null;A.swing=null;A.contact=null;A.judged=false;A.whiff=false;A.foulPlay=false;A.B=null;A.R=null;A.script=null;
   const b=G.batter;b.swing=null;b.post=null;b.pose='stance';b.pos.set(BATTER_X,0,0.05);b.yaw=Math.PI/2;if(b.bat)b.bat.visible=true;
   const p=G.pitcher;p.swing=null;p.post=null;p.pose='pt';p.poseU=0;p.pos.set(0,0.25,-RUBBER+0.25);p.yaw=0;
   const c=G.catcher;c.pos.set(0,0,1.05);c.pose='cr';c.swing=null;
   W3.ball.visible=true;FX.tp=[];}
 function deliver(){
-  const pi=A.cfg.pitcher;A.pitch=choosePitch(pi,A.count);A.state='wind';A.tW=now();G.pitcher.pose=null;G.pitcher.startSwing('pt',0);
+  const pi=A.cfg.pitcher;A.pitch=choosePitch(pi,A.count);
+  if(A.count[1]===2&&A.count[0]<3&&Math.random()<0.3&&(A.pitch.type==='FF'||A.pitch.type==='SI')){A.pitch.turbo=true;A.pitch.mph+=7}A.state='wind';A.tW=now();G.pitcher.pose=null;G.pitcher.startSwing('pt',0);
   A.tRel=A.tW+SWINGS.pt.dur*SWINGS.pt.cf*1000;A.tLoad=A.tRel-430;A.loaded=false;A.pitches++;
 }
 function release(){
@@ -232,7 +245,7 @@ function release(){
   A.catchZ=0.92;A.tCatch=A.tR+pitchTimeAtZ(A.pitch,A.catchZ)*1000;
   // reading the pitch: a sharper eye names it sooner
   const eye=A.cfg.st.eye;A.tRead=A.tR+clamp(330-eye*2.6,60,300);A.read=false;
-  sndWhoosh();
+  sndWhoosh();if(A.pitch.turbo){say('Turbo heater from '+A.cfg.pitcher.name+'!');W3.ball.material.emissive.setHex(0xFF5A1F);W3.ball.material.emissiveIntensity=1.6}else{W3.ball.material.emissive.setHex(0);}
 }
 /* the swing: tDown is when the finger touched (taps are judged from the touch, not the lift) */
 function swingAt(tDown){
@@ -243,7 +256,8 @@ function swingAt(tDown){
   const b=G.batter,el=Math.max(0,(now()-tDown)/1000);
   // steer the bat toward the PCI: the hands move with it (only partly, the swing still has its shape)
   const off=steerFor(A.swing.pci.x,A.swing.pci.y);
-  b.pose=null;b.startSwing('sw',Math.min(el,SWT*0.9),off,1);hapticTap();
+  A.swing.turbo=MET.armT;A.swing.blast=MET.armB;
+  b.pose=null;b.startSwing('sw',Math.min(el,SWT*0.9),off,1);hapticTap();if(MET.armT){b.bat&&b.bat.userData.wood.emissive.setHex(0xFF6A00)}
 }
 function steerFor(x,y){const b=G.batter;if(!G.sweet)return null;
   // the sweet spot nominally sits at G.sweet (world, relative to the batter); move the hands so it lands on (x,y, contact plane)
@@ -254,7 +268,10 @@ function steerFor(x,y){const b=G.batter;if(!G.sweet)return null;
 function judgeContact(){
   const s=A.swing,p=A.pitch,tc=s.t+SWT*1000,dt=(tc-A.tCon)/1000;
   const bp=pitchPos(p,pitchTimeAtZ(p,0));
-  const res=contactOf(bp.x,bp.y,s.pci.x,s.pci.y,dt,A.cfg.st,s.type,p);showGrades(res);A.contact=res;A.contact.dt=dt;res.dt=dt;res.bx=bp.x;res.by=bp.y;A.contact.bx=bp.x;A.contact.by=bp.y;
+  const res=contactOf(bp.x,bp.y,s.pci.x,s.pci.y,dt,A.cfg.st,s.type,p);showGrades(res);
+  if(s.turbo){MET.armT=false;MET.turbo=Math.max(0,MET.turbo-100);renderMeters()}
+  // Big Blast: any fair contact leaves the yard
+  if(s.blast&&res.kind==='play'){res.ev=Math.max(res.ev,109);res.la=rnd(25,31);res.spray=clamp(res.spray,-0.42,0.42);res.blast=true}A.contact=res;A.contact.dt=dt;res.dt=dt;res.bx=bp.x;res.by=bp.y;A.contact.bx=bp.x;A.contact.by=bp.y;
   return res}
 /* why a swing missed, so you can adjust */
 function missWhy(c){const tw=c.qt>1;if(tw)return(c.dt<0?'too early':'too late')+' by '+Math.round(Math.abs(c.dt)*1000)+' ms';
@@ -265,7 +282,7 @@ function callPitch(){
   const p=A.pitch,bp=pitchPos(p,pitchTimeAtZ(p,0)),strike=inZone(bp.x+gauss()*0.008,bp.y+gauss()*0.008);
   showMark(bp,strike?0xF28A78:0x74D493);A.ptSeen.push({x:bp.x,y:bp.y,type:p.type,res:strike?'S':'B'});
   if(strike){A.count[1]++;if(A.count[1]>=3){umpire('Strike three!');endPA({code:'K',kLooking:true});return}umpire('Strike!');say('Called strike · '+pitchInfo()+(locWord(bp.x,bp.y)?'':''))}
-  else{A.count[0]++;if(A.count[0]>=4){umpire('Ball four.');endPA({code:'BB'});return}say('Ball · '+pitchInfo()+' · '+locWord(bp.x,bp.y))}
+  else{A.count[0]++;gainTurbo(35);if(A.count[0]>=4){umpire('Ball four.');endPA({code:'BB'});return}say('Ball · '+pitchInfo()+' · '+locWord(bp.x,bp.y))}
   renderHUD();}
 function showMark(bp,col){W3.mark.visible=true;W3.mark.position.set(bp.x,bp.y,0);W3.mark.material.color.setHex(col);W3.markRing.material.color.setHex(col)}
 /* ball in play: fly it, let the defence resolve it, then animate the play */
@@ -275,6 +292,9 @@ function inPlay(c){
   const R=resolvePlay(B,{outs:A.practice?0:sit.outs,bases:A.practice?[null,null,null]:sit.bases,spd:bat.speed,err:A.cfg.errRate||0.02,arm:A.cfg.arm||30});
   A.B=B;A.R=R;A.state='play';A.tP=now();
   const pw=c.ev/110;sndBat(pw,c.q);onContact(W3.ball.position.clone(),c.ev,c.q>0.85);
+  if(c.blast){MET.armB=false;MET.blast=0;renderMeters();showCall('BIG BLAST!',false,'w');flash('#FFD23F');slowMo(true,0.25);A.slowUntil=now()+260}
+  else if(c.perfect||B.hr){slowMo(true,0.3);A.slowUntil=now()+(B.hr?240:150);if(c.perfect)flash('rgba(255,255,255,.6)')}
+  if(G.batter.bat)G.batter.bat.userData.wood.emissive.setHex(0);
   if(R.code==='FOUL'){A.foulPlay=true}
   planPlay(B,R);
 }
@@ -314,8 +334,17 @@ function tickPlay(dt){
       if(!th.started){th.started=true;const thr=S.throws.indexOf(th)===0?f:receiverAt(th.from);if(thr){thr.pose=null;thr.startSwing('th',SWINGS.th.dur*0.45)}}}
     else{const last=S.throws.filter(x=>t>=x.t1).pop();if(last){bp=new T.Vector3(...last.to)}else bp=f?f.gloveWorld():new T.Vector3(...R.catchAt)}}
   W3.ball.position.copy(bp);W3.ball.visible=true;
+  // highlight reel: leaps at the wall, dives, home run fireworks
+  if(R.t&&R.fielder&&(R.robbed||R.dive)&&!S.hlDone){const f=G.fielders[R.fielder];
+    if(!S.hl&&t>=R.t-0.55){S.hl=true;slowMo(true,0.35);A.slowUntil=0}
+    if(R.robbed){const u=(t-(R.t-0.5))/0.95;f.lift=u>0&&u<1?1.4*Math.sin(Math.PI*u):0}
+    else{if(S.dside==null){const dx=R.catchAt[0]-FPOS[R.fielder][0],dz=R.catchAt[2]-FPOS[R.fielder][1];S.dside=(dx*Math.cos(f.yaw)-dz*Math.sin(f.yaw))>0?-1:1}
+      const a=t<R.t-0.3?0:t<R.t?(t-(R.t-0.3))/0.3:t<R.t+0.7?1:Math.max(0,1-(t-R.t-0.7)/0.4);f.tilt=S.dside*1.3*a;f.lift=-0.1*a}
+    if(t>R.t+0.3&&S.hl){slowMo(false)}if(t>R.t+1.2){S.hlDone=true;f.tilt=0;f.lift=0}}
+  if(B.hr&&B.wall&&!S.fw&&t>=B.wall.t){S.fw=true;const d=dirOf(sprayOf(B.wall.x,B.wall.z));fireworks(B.wall.x+d.x*12,PARK.wall+16,B.wall.z+d.z*12,A.contact&&A.contact.blast?6:3);cheer(1);sndCrowd(1.3);
+    if(A.contact&&A.contact.blast){shatterBoard();kick(0.15);flash('#FF9A3D')}}
   // catch / pick-up moment
-  if(R.t&&t>=R.t&&!S.caught&&R.code!=='HR'&&R.code!=='FOUL'){S.caught=true;sndGlove(R.air?0.8:0.5);if(R.out&&R.air){showCall(R.code==='SF'?'Sac fly':R.code==='LO'?'Line out':R.code==='PO'?'Pop out':'Fly out',R.dive);if(R.robbed)cheer(1)}}
+  if(R.t&&t>=R.t&&!S.caught&&R.code!=='HR'&&R.code!=='FOUL'){S.caught=true;sndGlove(R.air?0.8:0.5);if(R.robbed){showCall('Robbed!',false,'l');cheer(1);sndCrowd(1)}else if(R.dive){showCall(R.air?'Diving catch!':'Diving stop!',false,'l');sndCrowd(0.7)}else if(R.out&&R.air){const run=Math.hypot(R.catchAt[0]-FPOS[R.fielder][0],R.catchAt[2]-FPOS[R.fielder][1]);showCall(run>18?'Running catch!':R.code==='SF'?'Sac fly':R.code==='LO'?'Line out':R.code==='PO'?'Pop out':'Fly out')}}
   if(S.throws.length){for(const th of S.throws)if(t>=th.t1&&!th.done){th.done=true;sndGlove(0.6)}}
   // fielders: the one making the play runs to it; the first baseman covers the bag on grounders; others drift
   for(let i=1;i<=9;i++){const f=G.fielders[i];if(!f||i===2&&R.fielder!==2)continue;let tx=f.mv.x,tz=f.mv.z,go=false;
@@ -340,7 +369,11 @@ function tickPlay(dt){
   return t>=S.end}
 function receiverAt(p){let best=null,bd=9;for(let i=1;i<=9;i++){const f=G.fielders[i];if(!f)continue;const d=Math.hypot(f.mv.x-p[0],f.mv.z-p[2]);if(d<bd){bd=d;best=f}}return best}
 function turnTo(a,b,k){let d=b-a;d=Math.atan2(Math.sin(d),Math.cos(d));return a+d*Math.min(1,k)}
-function dropBat(){const b=G.batter;if(!b.bat)return;const m=b.bat.clone();W3.scene.add(m);const p=b.batPoint(20);m.position.copy(p).setY(0.04);m.rotation.set(Math.PI/2,0,rnd(0,6.28));m.scale.setScalar(0.01*PSCALE*b.sz);G.dropped=m}
+function dropBat(){const b=G.batter;if(!b.bat)return;const m=b.bat.clone();W3.scene.add(m);const p=b.batPoint(20);m.scale.setScalar(0.01*PSCALE*b.sz);G.dropped=m;
+  // a home run gets a bat flip: tossed up end over end
+  if(A&&A.R&&A.R.code==='HR'){m.position.copy(p);G.flip={m,v:new T.Vector3(rnd(-0.5,0.5),5.5,rnd(0.5,1.5)),w:rnd(9,14)};return}
+  m.position.copy(p).setY(0.04);m.rotation.set(Math.PI/2,0,rnd(0,6.28))}
+function flipTick(dt){const F=G&&G.flip;if(!F)return;F.v.y-=9.8*dt;F.m.position.addScaledVector(F.v,dt);F.m.rotation.x+=F.w*dt;F.m.rotation.z+=F.w*0.3*dt;if(F.m.position.y<0.05){F.m.position.y=0.05;F.m.rotation.set(Math.PI/2,0,F.m.rotation.z);G.flip=null}}
 /* ---- result of the plate appearance ---- */
 const CODE_TEXT={K:'Strikeout',BB:'Walk',HBP:'Hit by pitch','1B':'Single','2B':'Double','3B':'Triple',HR:'Home run!',GO:'Ground out',FO:'Fly out',LO:'Line out',PO:'Pop out',DP:'Double play',FC:'Fielder’s choice',E:'Safe on error',SF:'Sacrifice fly'};
 function endPA(r){
@@ -353,26 +386,34 @@ function endPA(r){
     res.out=0;res.bases=nb;res.runs=runs;res.rbi=runs;res.runnerMoves=mv;res.desc=r.code==='BB'?'walks':'is hit by a pitch'}
   A.res=res;A.state='done';A.tDone=now();
   const big=['1B','2B','3B','HR'].includes(res.code);
-  showCall(CODE_TEXT[res.code]||res.code,false,big?'w':res.out?'l':'');
+  rewardMeters(res);
+  showCall(res.code==='HR'&&distFt()>30?'Home run! '+Math.round(distFt())+' ft':CODE_TEXT[res.code]||res.code,false,big?'w':res.out?'l':'');
   if(res.code==='HR'){cheer(1);sndCrowd(1.2);kick(0.12)}else if(big){cheer(0.6);sndCrowd(0.8)}else if(res.out&&res.code!=='K'){sndCrowd(0.2)}
   if(res.runs&&!A.practice)say((res.runs===1?'A run scores':res.runs+' runs score')+'!');
   renderHUD();
 }
+function rewardMeters(res){const c=res.code,hit={'1B':[60,20],'2B':[70,30],'3B':[80,40],HR:[100,40]}[c];
+  if(hit){gainTurbo(hit[0]);if(!(A.contact&&A.contact.blast))gainBlast(hit[1]+(res.rbi||0)*5);MET.streak++}
+  else if(c==='BB'||c==='HBP'){gainTurbo(50);gainBlast(10)}else{MET.streak=0;if(res.rbi)gainBlast(res.rbi*5)}
+  if(MET.armB&&!(A.contact&&A.contact.blast)){MET.armB=false;say('The Big Blast went unused this at-bat.')}
+  $('fire').hidden=MET.streak<2;renderMeters()}
 function finishPlay(){const R=A.R;
   if(R.code==='FOUL'){foulBall();return}
   const out={code:R.code==='HR'?'HR':R.code,out:R.out,bases:R.bases,runs:R.runs,rbi:R.rbi,desc:R.desc,hit:R.hit,err:R.err,runnerMoves:R.runnerMoves};
   if(A.practice){A.state='done';A.tDone=now();A.res=out;showCall(CODE_TEXT[R.code]||R.code,false,R.hit?'w':'l');say(contactLine());
+    rewardMeters(out);if(R.code==='HR')showCall('Home run! '+Math.round(distFt())+' ft',false,'w');
     const bp=A.bp=A.bp||{n:0,hits:0,hr:0,best:0};bp.n++;if(R.hit)bp.hits++;if(R.code==='HR')bp.hr++;const ft=Math.round(distFt());if(ft>bp.best)bp.best=ft;renderHUD();return}
   endPA(out)}
 /* projected distance: where it landed, or for a home run where it would have come down */
 function distFt(){const B=A.B;if(!B)return 0;if(B.hr){const c=A.contact,B2=simBall(c.ev,c.la,c.spray,{line:999,cf:999,wall:0},{x0:0,y0:c.by,z0:-0.3});return(B2.dist||0)*3.281}return(B.dist||0)*3.281}
 function contactLine(){const c=A.contact;if(!c)return'';const d=distFt();return Math.round(c.ev)+' mph off the bat · '+Math.round(c.la)+'°'+(d>30?' · '+Math.round(d)+' ft':'')}
-function foulBall(){A.foulPlay=false;if(A.count[1]<2)A.count[1]++;umpire('Foul ball.');showCall('Foul',false,'');say('Foul · '+pitchInfo());renderHUD();cleanupPlay();nextPitchSoon(1500)}
+function foulBall(){A.foulPlay=false;if(A.count[1]<2)A.count[1]++;gainTurbo(15);umpire('Foul ball.');showCall('Foul',false,'');say('Foul · '+pitchInfo());renderHUD();cleanupPlay();nextPitchSoon(1500)}
 function cleanupPlay(){W3.land.visible=false;if(G.dropped){W3.scene.remove(G.dropped);G.dropped=null}resetPositions();placeRunners(A.cfg.sit?A.cfg.sit.bases:null);W3.pci.visible=true;W3.zone.visible=true}
 
 /* ---- per-frame at-bat logic ---- */
 function stepAB(dt){
   if(!A)return;const t=now();
+  if(A.slowUntil&&t>A.slowUntil){A.slowUntil=0;slowMo(false)}
   if(A.state==='ready'){if(t>=A.t0)deliver()}
   if(A.state==='wind'){
     if(!A.loaded&&t>=A.tLoad){A.loaded=true;const b=G.batter;b.pose=null;b.startSwing('ld',0);b.swing.hold=true}
@@ -427,6 +468,8 @@ function ord(n){return n+(n%10===1&&n!==11?'st':n%10===2&&n!==12?'nd':n%10===3&&
 function diamond(b){const on=k=>b&&b[k]!=null?'on':'';return'<svg class="dia" viewBox="0 0 40 30" aria-label="bases"><rect class="'+on(1)+'" x="15" y="2" width="10" height="10" transform="rotate(45 20 7)"/><rect class="'+on(0)+'" x="26" y="12" width="10" height="10" transform="rotate(45 31 17)"/><rect class="'+on(2)+'" x="4" y="12" width="10" height="10" transform="rotate(45 9 17)"/></svg>'}
 function renderSwingType(){document.querySelectorAll('#stype button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.t===swingType)))}
 document.querySelectorAll('#stype button').forEach(b=>b.onclick=e=>{e.stopPropagation();swingType=b.dataset.t;renderSwingType();try{localStorage.setItem('bg-stype',swingType)}catch(_){}});
+$('turboBtn').addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();if(MET.armT){MET.armT=false;MET.turbo+=0}else if(MET.turbo>=100){MET.armT=true;say('Turbo armed: bigger circle, wider timing, harder swing.')}renderMeters()});
+$('blastBtn').addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();if(MET.blast>=100&&!MET.armB){MET.armB=true;say('BIG BLAST armed: any fair contact this at-bat is gone!');sndCrowd(0.8);cheer(0.6)}renderMeters()});
 try{const s=localStorage.getItem('bg-stype');if(STYPES[s])swingType=s}catch(_){}renderSwingType();
 if($('aimBtn')){renderAim();$('aimBtn').onclick=e=>{e.stopPropagation();const k=Object.keys(AIMS);aimMode=k[(k.indexOf(aimMode)+1)%k.length];try{localStorage.setItem('bg-aim',aimMode)}catch(_){}renderAim();say('Aim: '+AIMS[aimMode].n+'. '+AIMS[aimMode].hint+'.')}}
 
@@ -480,7 +523,7 @@ function loop(t){
   for(const r of G.runners)if(r.mesh.visible)r.update(dt,0,r._v||0);
   // ball shadow
   const bw=W3.ball.position;W3.bshadow.visible=W3.ball.visible;W3.bshadow.position.set(bw.x,0.02,bw.z);W3.bshadow.scale.setScalar(1/(1+bw.y*0.15));
-  camera(dtr);crowdTick(dtr,t);fxTick(dt);
+  camera(dtr);crowdTick(dtr,t);fxTick(dt);fwTick(dtr*CLK.ts);shardTick(dt);flipTick(dt);
   // the catcher fades so you can see low pitches through him
   {const fade=A&&(A.state==='pitch'||A.state==='wind'||A.state==='ready')?0.3:1,m=G.catcher.mat;m.opacity+=(fade-m.opacity)*Math.min(1,dtr*8);const tr=m.opacity<0.99;
     if(tr!==m.transparent){m.transparent=tr;m.depthWrite=!tr;m.needsUpdate=true}
@@ -502,6 +545,6 @@ function camera(dt){
 /*@CAREER*/
 document.addEventListener('pointerdown',sndResume,{passive:true});
 $('snd').textContent=SND.on?'Sound on':'Sound off';$('snd').onclick=()=>{sndResume();$('snd').textContent=sndToggle()?'Sound on':'Sound off'};
-window.__GT=()=>GT;window.__BG={get A(){return A},get G(){return G},W3,setupScene,startPA,swingAt,SWINGS,PT,simBall,resolvePlay,get save(){return save}};
+window.__GT=()=>GT;window.__BG={MET,get A(){return A},get G(){return G},W3,setupScene,startPA,swingAt,SWINGS,PT,simBall,resolvePlay,get save(){return save}};
 renderTitle();
 })();

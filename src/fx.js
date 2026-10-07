@@ -28,3 +28,17 @@ function fxTick(dt){
   tr.count=n;tr.instanceMatrix.needsUpdate=true;if(tr.instanceColor)tr.instanceColor.needsUpdate=true;
   if(FX.shake>0)FX.shake-=dt}
 function shakeOffset(){if(FX.shake<=0)return null;const a=FX.shakeAmp*(FX.shake/0.2);return new T.Vector3((Math.random()-0.5)*a,(Math.random()-0.5)*a,(Math.random()-0.5)*a)}
+
+function slowMo(on,k){CLK.slowT=on?(k||0.3):1}
+function flash(col){const f=document.getElementById('flash');if(!f)return;f.style.background=col||'#fff';f.className='';void f.offsetWidth;f.className='on'}
+/* fireworks over the stands: bursts of glowing sparks */
+const FW={pts:null,p:[]};
+function fwInit(s){const n=600,g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(new Float32Array(n*3),3));g.setAttribute('color',new T.Float32BufferAttribute(new Float32Array(n*3),3));
+  FW.pts=new T.Points(g,new T.PointsMaterial({size:0.9,vertexColors:true,transparent:true,opacity:1,depthWrite:false,blending:T.AdditiveBlending}));FW.pts.frustumCulled=false;s.add(FW.pts);for(let i=0;i<n;i++)FW.p.push({life:0})}
+function fireworks(x,y,z,n,cols){if(!FW.pts)return;let c=0;cols=cols||[[1,0.85,0.3],[1,0.35,0.3],[0.4,0.8,1],[0.8,1,0.5]];
+  for(let b=0;b<n;b++){const cx=x+rnd(-14,14),cy=y+rnd(0,10),cz=z+rnd(-8,8),col=pick(cols),t0=b*0.25;
+    for(const p of FW.p){if(p.life>0)continue;const th=Math.random()*6.283,ph=Math.acos(rnd(-1,1)),sp=rnd(7,12);
+      Object.assign(p,{x:cx,y:cy,z:cz,vx:Math.sin(ph)*Math.cos(th)*sp,vy:Math.cos(ph)*sp,vz:Math.sin(ph)*Math.sin(th)*sp,life:1.6+t0,delay:t0,col});if(++c>=90*(b+1))break}}}
+function fwTick(dt){if(!FW.pts)return;const pa=FW.pts.geometry.attributes.position,ca=FW.pts.geometry.attributes.color;let i=0;
+  for(const p of FW.p){if(p.life>0){p.life-=dt;if(p.delay>0){p.delay-=dt;pa.setXYZ(i,0,-99,0)}else{p.vy-=5*dt;p.vx*=0.985;p.vz*=0.985;p.x+=p.vx*dt;p.y+=p.vy*dt;p.z+=p.vz*dt;pa.setXYZ(i,p.x,p.y,p.z);const f=Math.min(1,p.life);ca.setXYZ(i,p.col[0]*f,p.col[1]*f,p.col[2]*f)}}else pa.setXYZ(i,0,-99,0);i++}
+  pa.needsUpdate=true;ca.needsUpdate=true}

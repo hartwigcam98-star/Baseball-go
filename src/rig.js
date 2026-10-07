@@ -292,7 +292,7 @@ class Player{
     if(!this.lite||P)this.athletic(q,h,this.depth,P,wT);else h[1]-=13*this.depth*this.sz;
     if(P)this.arms(q,h,P,wA);
     const B=this.bones;for(let k=0;k<this.nb;k++)B[k].quaternion.set(q[k*4],q[k*4+1],q[k*4+2],q[k*4+3]);B[0].position.set(h[0],h[1],h[2]);
-    const m=this.root.matrix;m.makeRotationY(this.yaw+this.bodyYaw);m.scale(new T.Vector3(.01*PSCALE,.01*PSCALE,.01*PSCALE));m.setPosition(this.pos.x,this.pos.y,this.pos.z);this.root.matrixWorldNeedsUpdate=true;
+    const m=this.root.matrix;m.makeRotationY(this.yaw+this.bodyYaw);if(this.tilt)m.multiply(new T.Matrix4().makeRotationZ(this.tilt));if(this.pitchT)m.multiply(new T.Matrix4().makeRotationX(this.pitchT));m.scale(new T.Vector3(.01*PSCALE,.01*PSCALE,.01*PSCALE));m.setPosition(this.pos.x,this.pos.y+(this.lift||0),this.pos.z);this.root.matrixWorldNeedsUpdate=true;
   }
 }
 /* team colours: hue-shift the clothing on a character's texture (skin is left alone) */

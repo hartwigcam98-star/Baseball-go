@@ -24,7 +24,7 @@ function boxBatch(mat){const L=[];return{add(cx,cy,cz,sx,sy,sz,ry){L.push([cx,cy
 function buildPark(kind){
   const s=W3.scene;if(W3.park){s.remove(W3.park);W3.park.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material){(Array.isArray(o.material)?o.material:[o.material]).forEach(m=>{if(m.map)m.map.dispose();m.dispose()})}})}
   PARK=PARKS[kind]||PARKS.majors;PARK.kind=kind;
-  const G=W3.park=new T.Group();s.add(G);
+  const G=W3.park=new T.Group();s.add(G);W3.shards=null;
   s.background=new T.Color(PARK.sky);s.fog=new T.Fog(PARK.sky,140,420);
   /* ---- outfield grass, mowing stripes, warning track, foul ground ---- */
   const X0=-150,X1=150,Z0=-150,Z1=30,ppm=7;
@@ -101,6 +101,10 @@ function buildPark(kind){
   // foul poles
   for(const sx of[-1,1]){const d=PARK.line,p=new T.Mesh(new T.CylinderGeometry(0.12,0.12,PARK.wall+12,8),capMat);p.position.set(sx*d*SQ2,(PARK.wall+12)/2,-d*SQ2);G.add(p)}
   // batter's eye in centre
+  {const sb=cvTex(512,256,(g,w,h)=>{g.fillStyle='#10202B';g.fillRect(0,0,w,h);g.strokeStyle='#F2C230';g.lineWidth=8;g.strokeRect(6,6,w-12,h-12);g.fillStyle='#F2C230';g.font='bold 64px sans-serif';g.textAlign='center';g.fillText('BASEBALL GO',w/2,96);
+      g.fillStyle='#EEF1E6';g.font='bold 40px sans-serif';g.fillText(PARK.name.toUpperCase(),w/2,170);for(let i=0;i<30;i++){g.fillStyle=i%2?'#D3E86B':'#F28A78';g.fillRect(40+i*15,205,9,9)}});
+    const H=PARK.chain?6:12,bd=new T.Mesh(new T.BoxGeometry(24,10,1),[0,0,0,0,new T.MeshBasicMaterial({map:sb}),0].map(m=>m||new T.MeshStandardMaterial({color:0x1A2630})));
+    bd.position.set(0,H+5.5,-PARK.cf-3.2);G.add(bd);W3.board=bd;W3.boardHome=bd.position.clone()}
   const eye=new T.Mesh(new T.BoxGeometry(30,PARK.chain?6:12,1),new T.MeshStandardMaterial({color:0x1E3527,roughness:1}));eye.position.set(0,(PARK.chain?6:12)/2,-PARK.cf-3);G.add(eye);
   /* ---- stands and the crowd ---- */
   buildStands(G);
@@ -164,3 +168,10 @@ function crowdTick(dt,t){const CR=W3.crowd;if(!CR||!CR.n)return;CR.amp=Math.max(
     m4.makeRotationY(s[3]).setPosition(s[0],s[1]+0.28+j,s[2]);CR.body.setMatrixAt(i,m4);m4.makeTranslation(s[0],s[1]+0.7+j,s[2]);CR.head.setMatrixAt(i,m4)}
   CR.body.instanceMatrix.needsUpdate=true;CR.head.instanceMatrix.needsUpdate=true}
 function cheer(a){if(W3.crowd)W3.crowd.amp=Math.max(W3.crowd.amp,a)}
+
+/* a Big Blast shatters the scoreboard: the board flies apart in tumbling panels */
+function shatterBoard(){const bd=W3.board;if(!bd||!bd.visible)return;bd.visible=false;W3.shards=[];
+  const mat=new T.MeshStandardMaterial({color:0x2A3A48,emissive:0x332200,roughness:.6});
+  for(let i=0;i<40;i++){const m=new T.Mesh(new T.BoxGeometry(rnd(1,3),rnd(1,2.5),0.4),i%3?mat:new T.MeshBasicMaterial({color:i%2?0xF2C230:0xD3E86B}));
+    m.position.copy(bd.position).add(new T.Vector3(rnd(-11,11),rnd(-4,4),0));W3.park.add(m);W3.shards.push({m,v:new T.Vector3(rnd(-8,8),rnd(4,16),rnd(-4,10)),w:new T.Vector3(rnd(-6,6),rnd(-6,6),rnd(-6,6))})}}
+function shardTick(dt){if(!W3.shards)return;for(const s of W3.shards){s.v.y-=9.8*dt;s.m.position.addScaledVector(s.v,dt);if(s.m.position.y<0.2){s.m.position.y=0.2;s.v.multiplyScalar(0.4);s.v.y=Math.abs(s.v.y)*0.3}s.m.rotation.x+=s.w.x*dt;s.m.rotation.y+=s.w.y*dt;s.m.rotation.z+=s.w.z*dt}}

@@ -103,11 +103,16 @@
     <div class="row between sub"><span id="who"></span><span class="row" style="gap:6px;flex-wrap:nowrap"><button id="aimBtn">Aim: Auto</button><span class="cnt num" id="cnt"></span></span></div>
     <p id="ptype" hidden></p>
   </div>
+  <div id="flash"></div>
+  <div id="fire" hidden>On fire</div>
   <div id="call"></div>
   <div id="grades"></div>
   <div class="hud bot">
     <div class="row between ctl">
-      <div id="stype"><button data-t="contact">Contact</button><button data-t="normal">Normal</button><button data-t="power">Power</button></div>
+      <div class="lcol">
+        <div id="meters"><button id="turboBtn" disabled><span>Turbo</span><span class="pips"></span></button><button id="blastBtn" disabled><span>Big Blast</span><b><i></i></b></button></div>
+        <div id="stype"><button data-t="contact">Contact</button><button data-t="normal">Normal</button><button data-t="power">Power</button></div>
+      </div>
       <button id="swingBtn" aria-label="Swing">Swing</button>
     </div>
     <div class="msgbar"><span id="msg"></span><span class="row" style="gap:6px;flex-wrap:nowrap"><button id="snd">Sound on</button><button id="quit">Pause</button></span></div>
