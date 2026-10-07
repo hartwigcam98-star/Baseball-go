@@ -89,6 +89,8 @@ function initGL(){
   const fill=new T.Mesh(new T.CircleGeometry(1,48),new T.MeshBasicMaterial({color:0xD3E86B,transparent:true,opacity:0.12,depthTest:false,side:T.DoubleSide}));
   const dot=new T.Mesh(new T.CircleGeometry(0.16,20),new T.MeshBasicMaterial({color:0xD3E86B,transparent:true,opacity:0.9,depthTest:false,side:T.DoubleSide}));
   pci.add(fill);pci.add(ring);pci.add(dot);pci.children.forEach(c=>c.renderOrder=6);W3.pciRing=ring;W3.pciFill=fill;W3.pciDot=dot;s.add(pci);
+  // timing ring: closes onto the contact circle at the moment to tap
+  W3.tring=new T.Mesh(new T.RingGeometry(0.9,1,56),new T.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.9,depthTest:false,side:T.DoubleSide}));W3.tring.renderOrder=8;W3.tring.visible=false;s.add(W3.tring);
   W3.mark=new T.Mesh(new T.CircleGeometry(0.037,20),new T.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.95,depthTest:false,side:T.DoubleSide}));W3.mark.renderOrder=7;W3.mark.visible=false;s.add(W3.mark);
   W3.markRing=new T.Mesh(new T.RingGeometry(0.045,0.06,24),new T.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.95,depthTest:false,side:T.DoubleSide}));W3.markRing.renderOrder=7;W3.mark.add(W3.markRing);
   W3.land=new T.Mesh(new T.RingGeometry(0.6,0.8,32).rotateX(-Math.PI/2),new T.MeshBasicMaterial({color:0xD3E86B,transparent:true,opacity:0.8,depthWrite:false}));W3.land.visible=false;s.add(W3.land);
@@ -108,6 +110,10 @@ const SWT=SWINGS.sw.dur*SWINGS.sw.cf;// tap to contact, seconds
 const BATTER_X=-0.86;
 const STYPES={contact:{n:'Contact',pci:1.28,ev:0.9,tw:1.18},normal:{n:'Normal',pci:1,ev:1,tw:1},power:{n:'Power',pci:0.74,ev:1.09,tw:0.85}};
 let swingType='normal';
+/* aim assist: auto puts the circle on the pitch (you only time it), lock-on pulls it toward the pitch, manual is all you */
+const AIMS={auto:{n:'Auto',hint:'Tap when the ring closes'},lock:{n:'Lock-on',hint:'The circle drifts to the pitch; drag to help it'},manual:{n:'Manual',hint:'Drag the circle onto the pitch, tap when the ring closes'}};
+let aimMode='auto';try{const m=localStorage.getItem('bg-aim');if(AIMS[m])aimMode=m}catch(_){}
+function renderAim(){const b=$('aimBtn');if(b)b.textContent='Aim: '+AIMS[aimMode].n}
 /* load characters and build the scene. cfg: {park, batterId, pitcherId, fielderIds:[a,b], homeColor, defHue, myHue} */
 async function setupScene(cfg){
   initGL();show('ab');$('loading').hidden=false;$('loadMsg').textContent='Loading the ballpark…';
@@ -170,18 +176,32 @@ function pitchTimeAtZ(p,z){// solve R.z + v0.z t + a.z t²/2 = z
 
 /* ---- contact ---- */
 /* bx,by: where the ball crosses the plate; px,py: PCI centre; dt: swing timing error (s, + = late) */
+/* the contact circle's size and the timing window both come from the Contact rating and the swing type */
+function pciR(c,styp){return(0.085+c*0.00085)*STYPES[styp].pci}
+function timingWin(c,styp){return(0.075+c*0.0004)*STYPES[styp].tw}// seconds either side: inside 35% is Perfect, 70% Good
 function contactOf(bx,by,px,py,dt,st,styp,p){
-  const S=STYPES[styp],c=st.contact,rx=(0.085+c*0.00085)*S.pci,ry=rx*0.8,tw=(0.048+c*0.0003)*S.tw;
-  const ox=(bx-px)/rx,oy=(by-py)/ry,d=Math.hypot(ox,oy),qt=Math.abs(dt)/tw;
-  if(d>1.22||qt>1.45)return{kind:'whiff',d,qt};
-  if(d>1||qt>1){return Math.random()<0.55?{kind:'foul',tip:Math.random()<0.25,d,qt}:{kind:'whiff',d,qt}}
-  const q=clamp(1-d*d*0.55-qt*qt*0.6,0,1);
-  const base=(80+st.power*0.27)*S.ev,ev=clamp(base*(0.58+0.42*q)+gauss()*2.5-(p?Math.max(0,PT[p.type].v<0.9?1:0):0),35,121);
-  // under the ball (PCI low) lifts it; over the ball beats it into the ground
-  let la=11-oy*34+(by-0.76)*-14+gauss()*7;if(qt>0.75)la+=gauss()*14;
+  const S=STYPES[styp],c=st.contact,rx=pciR(c,styp),ry=rx*0.8,tw=timingWin(c,styp);
+  const ox=(bx-px)/rx,oy=(by-py)/ry,d=Math.hypot(ox,oy),qt=Math.abs(dt)/tw,base={d,qt,ox,oy,dt};
+  if(d>1.22||qt>1.45)return Object.assign(base,{kind:'whiff'});
+  if(d>1||qt>1){return Object.assign(base,Math.random()<0.55?{kind:'foul',tip:Math.random()<0.25}:{kind:'whiff'})}
+  const perfect=qt<=0.35&&d<=0.38;
+  let q=clamp(1-d*d*0.5-qt*qt*0.55,0,1);if(perfect)q=Math.max(q,0.93);
+  const top=(80+st.power*0.27)*S.ev,ev=clamp(perfect?top*rnd(0.98,1.03):top*(0.58+0.42*q)+gauss()*2.5,35,121);
+  // under the ball (circle low) lifts it; over the ball beats it into the ground
+  let la=11-oy*34+(by-0.76)*-14+gauss()*(perfect?3:7);if(qt>0.75)la+=gauss()*14;
+  // a perfect swing is always squared up: a line drive or a drive in the air, never a dribbler or a pop-up
+  if(perfect)la=clamp(la,10,30);
   // early pulls (to left for a right-handed hitter), late goes the other way; where the pitch is matters too
-  let spray=dt/tw*34+bx*42+gauss()*8;
-  return{kind:'play',ev,la:clamp(la,-60,80),spray:spray*Math.PI/180,q,d,qt}}
+  let spray=dt/tw*34+bx*42+gauss()*(perfect?4:8);
+  return Object.assign(base,{kind:'play',ev,la:clamp(la,-60,80),spray:spray*Math.PI/180,q,perfect})}
+/* two grades after every swing: how the timing was, and how the circle met the ball */
+function gradeTiming(c){const q=c.qt;if(q<=0.35)return['Perfect','g'];if(q<=0.7)return['Good','g2'];const e=c.dt<0;return q<=1?[e?'Early':'Late','m']:[e?'Way early':'Way late','b']}
+function gradeContact(c){const d=c.d;if(d<=0.38)return['Square','g'];const v=Math.abs(c.oy)>=Math.abs(c.ox);
+  const w=v?(c.oy>0?'under':'over'):(c.ox>0?'off the end':'jammed');// oy>0: the ball was above the circle, so the bat went under it
+  if(d<=0.75)return[v?'A bit '+w:w==='jammed'?'A bit jammed':'Near the end','g2'];if(d<=1)return[v?(c.oy>0?'Under it':'Over it'):(w==='jammed'?'Jammed':'Off the end'),'m'];return['Missed it','b']}
+function showGrades(c){const g=$('grades');if(!g)return;const t=gradeTiming(c),k=gradeContact(c);
+  g.innerHTML='<span class="gr '+t[1]+'"><small>Timing</small>'+t[0]+'</span><span class="gr '+k[1]+'"><small>Contact</small>'+k[0]+'</span>';
+  g.className='on';clearTimeout(showGrades.t);showGrades.t=setTimeout(()=>g.className='',2200)}
 
 /* ================= plate appearance flow =================
    cfg: {st (batter ratings), pitcher, sit:{inning,half,outs,bases,score,count}, practice, label, onDone(result)} */
@@ -190,7 +210,7 @@ function startPA(cfg){
   resetPositions();placeRunners(cfg.sit?cfg.sit.bases:null);
   W3.mark.visible=false;W3.land.visible=false;W3.ball.visible=true;FX.tp=[];
   A.pci={x:0,y:0.76};W3.pci.visible=true;W3.zone.visible=true;
-  renderHUD();say(cfg.intro||'Drag to aim, tap to swing.');
+  renderHUD();renderAim();say(cfg.intro||AIMS[aimMode].hint+'.');
 }
 function nextPitchSoon(ms){A.state='ready';A.t0=now()+(ms||rnd(1200,1900));A.pitch=null;A.swing=null;A.contact=null;A.judged=false;A.whiff=false;A.foulPlay=false;A.B=null;A.R=null;A.script=null;
   const b=G.batter;b.swing=null;b.post=null;b.pose='stance';b.pos.set(BATTER_X,0,0.05);b.yaw=Math.PI/2;if(b.bat)b.bat.visible=true;
@@ -204,6 +224,9 @@ function deliver(){
 function release(){
   const p=G.pitcher,hw=p.handWorld();
   makePitch(A.pitch,hw);A.state='pitch';A.tR=now();
+  // where an assisted circle heads: the crossing point, but only within reach of the zone (chasing junk still misses)
+  {const cp=pitchPos(A.pitch,pitchTimeAtZ(A.pitch,0)),r=pciR(A.cfg.st.contact,swingType);
+    A.aimT={x:clamp(cp.x,-ZONE.hw-0.1,ZONE.hw+0.1)+gauss()*r*0.12,y:clamp(cp.y,ZONE.lo-0.1,ZONE.hi+0.1)+gauss()*r*0.15}}
   A.tPlate=A.tR+pitchTimeAtZ(A.pitch,0)*1000;A.tCon=A.tR+pitchTimeAtZ(A.pitch,-0.28)*1000;
   // the catcher sets up where the pitch is headed
   A.catchZ=0.92;A.tCatch=A.tR+pitchTimeAtZ(A.pitch,A.catchZ)*1000;
@@ -231,7 +254,7 @@ function steerFor(x,y){const b=G.batter;if(!G.sweet)return null;
 function judgeContact(){
   const s=A.swing,p=A.pitch,tc=s.t+SWT*1000,dt=(tc-A.tCon)/1000;
   const bp=pitchPos(p,pitchTimeAtZ(p,0));
-  const res=contactOf(bp.x,bp.y,s.pci.x,s.pci.y,dt,A.cfg.st,s.type,p);A.contact=res;A.contact.dt=dt;res.dt=dt;res.bx=bp.x;res.by=bp.y;A.contact.bx=bp.x;A.contact.by=bp.y;
+  const res=contactOf(bp.x,bp.y,s.pci.x,s.pci.y,dt,A.cfg.st,s.type,p);showGrades(res);A.contact=res;A.contact.dt=dt;res.dt=dt;res.bx=bp.x;res.by=bp.y;A.contact.bx=bp.x;A.contact.by=bp.y;
   return res}
 /* why a swing missed, so you can adjust */
 function missWhy(c){const tw=c.qt>1;if(tw)return(c.dt<0?'too early':'too late')+' by '+Math.round(Math.abs(c.dt)*1000)+' ms';
@@ -353,11 +376,12 @@ function stepAB(dt){
   if(A.state==='ready'){if(t>=A.t0)deliver()}
   if(A.state==='wind'){
     if(!A.loaded&&t>=A.tLoad){A.loaded=true;const b=G.batter;b.pose=null;b.startSwing('ld',0);b.swing.hold=true}
-    if(A.swing&&!A.judged&&t>=A.swing.t+SWT*1000){A.judged=true;A.whiff=true;say('Way too early: wait until the ball is on its way.')}
+    if(A.swing&&!A.judged&&t>=A.swing.t+SWT*1000){A.judged=true;A.whiff=true;say('Way too early: wait until the ball is on its way.');showGrades({qt:9,dt:-1,d:9,ox:0,oy:0})}
     if(t>=A.tRel)release()}
   if(A.state==='wind'||A.state==='pitch'){const b=G.batter;if(!A.loaded&&A.state==='pitch'){A.loaded=true;b.pose=null;b.startSwing('ld',0.3);b.swing.hold=true}}
   if(A.state==='pitch'){
     const p=A.pitch,tt=(t-A.tR)/1000;
+    if(A.aimT&&!A.swing&&aimMode!=='manual'){const k=Math.min(1,dt*(aimMode==='auto'?9:2.8));A.pci.x+=(A.aimT.x-A.pci.x)*k;A.pci.y+=(A.aimT.y-A.pci.y)*k}
     if(!A.read&&t>=A.tRead){A.read=true;$('ptype').textContent=PT[p.type].s;$('ptype').style.color=PT[p.type].c;$('ptype').hidden=false}
     if(A.swing&&!A.judged&&t>=A.swing.t+SWT*1000){A.judged=true;const c=judgeContact();
       if(c.kind==='play'){const hp=pitchPos(p,pitchTimeAtZ(p,-0.28));W3.ball.position.copy(hp);inPlay(c);return}
@@ -404,11 +428,12 @@ function diamond(b){const on=k=>b&&b[k]!=null?'on':'';return'<svg class="dia" vi
 function renderSwingType(){document.querySelectorAll('#stype button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.t===swingType)))}
 document.querySelectorAll('#stype button').forEach(b=>b.onclick=e=>{e.stopPropagation();swingType=b.dataset.t;renderSwingType();try{localStorage.setItem('bg-stype',swingType)}catch(_){}});
 try{const s=localStorage.getItem('bg-stype');if(STYPES[s])swingType=s}catch(_){}renderSwingType();
+if($('aimBtn')){renderAim();$('aimBtn').onclick=e=>{e.stopPropagation();const k=Object.keys(AIMS);aimMode=k[(k.indexOf(aimMode)+1)%k.length];try{localStorage.setItem('bg-aim',aimMode)}catch(_){}renderAim();say('Aim: '+AIMS[aimMode].n+'. '+AIMS[aimMode].hint+'.')}}
 
 /* ================= input: drag the PCI anywhere, tap to swing (or the swing button) ================= */
 const cv=$('gl');let drag=null;
 function mPerPx(){const d=W3.cam.position.z,h=2*d*Math.tan(W3.cam.fov*Math.PI/360);return h/window.innerHeight}
-function movePCI(dx,dy,k){if(!A)return;const m=mPerPx()*(k||1.25);A.pci.x=clamp(A.pci.x+dx*m,-0.55,0.55);A.pci.y=clamp(A.pci.y-dy*m,0.15,1.45)}
+function movePCI(dx,dy,k){if(!A||aimMode==='auto')return;const m=mPerPx()*(k||1.25);A.pci.x=clamp(A.pci.x+dx*m,-0.55,0.55);A.pci.y=clamp(A.pci.y-dy*m,0.15,1.45)}
 cv.addEventListener('pointerdown',e=>{if(!A||CLK.paused)return;e.preventDefault();
   if(A.state==='play'||A.state==='done'){skipPlay();return}
   try{cv.setPointerCapture(e.pointerId)}catch(_){}
@@ -436,7 +461,12 @@ function loop(t){
   const dt=dtr*CLK.ts;
   stepAB(dt);
   // PCI follows its position, sized to the swing type
-  if(A){const S=STYPES[swingType],c=A.cfg.st.contact,rx=(0.085+c*0.00085)*S.pci;W3.pci.position.set(A.pci.x,A.pci.y,0.0);W3.pci.scale.set(rx,rx*0.8,1);
+  if(A){const c=A.cfg.st.contact,rx=pciR(c,swingType);W3.pci.position.set(A.pci.x,A.pci.y,0.0);W3.pci.scale.set(rx,rx*0.8,1);
+    // timing ring: starts wide at release and lands on the circle exactly when you should tap (the swing takes ~0.2 s)
+    {const R=W3.tring;if(A.state==='pitch'&&!A.swing&&A.tR){const tTap=A.tCon-SWT*1000,tot=Math.max(1,tTap-A.tR),rem=tTap-now(),f=rem/tot,pw=timingWin(c,swingType)*1000*0.35;
+        const sc=rx*(1+2.8*Math.max(f,-0.35));R.visible=f>-0.5;R.position.set(A.pci.x,A.pci.y,0.001);R.scale.set(sc,sc*0.8,1);
+        const hot=Math.abs(rem)<=pw;R.material.color.setHex(hot?0x9BE15D:rem<-pw?0xF28A78:0xffffff);R.material.opacity=f<0?Math.max(0,0.9+f*1.6):0.9}
+      else R.visible=false}
     const live=A.state==='pitch'||A.state==='wind';W3.pciRing.material.opacity=live?0.95:0.6;W3.pciFill.material.opacity=live?0.14:0.08;
     W3.zone.material.opacity=A.state==='play'?0:0.42;
     // the pitcher holds his set position until he delivers
@@ -465,7 +495,7 @@ function camera(dt){
     const bp=W3.ball.position,B=A.B,far=Math.hypot(bp.x,bp.z);
     // broadcast-style: rise behind the plate, follow the ball out, pull back for deep drives
     const h=B&&B.apex>8?6+far*0.12:4+far*0.08;tp=new T.Vector3(bp.x*0.35,h,9+far*0.15);tl=new T.Vector3(bp.x*0.85,Math.min(bp.y,8)*0.6,bp.z*0.9-2);k=Math.min(1,dt*2.2)}
-  else{const port=W3.cam.aspect<1;tp=new T.Vector3(port?0.3:0.45,port?2.05:1.9,port?5.3:4.6);tl=new T.Vector3(port?-0.3:-0.35,port?1.18:1.2,-9);k=Math.min(1,dt*4)}
+  else{const port=W3.cam.aspect<1;tp=new T.Vector3(port?0.3:0.45,port?2.05:1.9,port?5.3:4.6);tl=new T.Vector3(port?-0.3:-0.35,port?0.9:1.1,-9);k=Math.min(1,dt*4)}
   W3.camPos.lerp(tp,k);W3.camLook.lerp(tl,k);W3.cam.position.copy(W3.camPos);const sk=shakeOffset();if(sk)W3.cam.position.add(sk);W3.cam.lookAt(W3.camLook)}
 
 /*@SIM*/

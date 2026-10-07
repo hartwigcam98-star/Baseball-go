@@ -327,7 +327,7 @@ async function startPractice(id,st,lv){
   const pitchers=['granny','ch39','ch28'];const pid=pitchers.find(p=>p!==id)||'ch28';
   await setupScene({park:LEVELS[lv].park,batterId:id,pitcherId:pid,homeColor:0x2E5FA8,defHue:200,myHue:0});sndResume();
   const L=LEVELS[lv],pi={name:RBYID[pid].name,velo:Math.round((L.velo[0]+L.velo[1])/2),control:70,stuff:55,ovr:50,mix:L.mix};
-  A=null;startPA({lv,st,pitcher:pi,practice:true,intro:'Drag to aim. Tap as the ball gets close: the swing takes a split second.',teams:['',''],onDone:()=>{}});
+  A=null;startPA({lv,st,pitcher:pi,practice:true,intro:'Tap when the ring closes on your yellow circle.',teams:['',''],onDone:()=>{}});
   ABQ.quit=null}
 async function quickGame(id,st,lv){
   const t1=makeTeam('Home Nine','HOM',lv,pick(HUES)),t2=makeTeam('Visitors','VIS',lv,pick(HUES));
