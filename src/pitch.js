@@ -94,12 +94,13 @@ function stealable(){const s=A&&A.cfg.sit;if(!s||A.pitching||A.practice||A.cfg.m
 function renderRunBtns(){const st=$('stealBtn');if(!st)return;const k=A&&A.state==='ready'&&!A.steal?stealable():-1;st.hidden=k<0;if(k>=0)st.textContent='Steal '+['2nd','3rd'][k]}
 function armSteal(){const k=stealable();if(k<0||!A||A.state!=='ready')return;A.steal={k,spd:A.cfg.sit.bases[k]};$('stealBtn').hidden=true;say('The runner goes on the pitch!')}
 function stealTick(){const S=A.steal;if(!S||S.over)return;const t=now();const r=G.runners[S.k];if(!r)return;
-  if(A.state==='wind'&&t>=A.tRel-250&&!S.t0)S.t0=t;if(!S.t0)return;
+  if(A.state==='wind'&&!S.t0)S.t0=A.tW-300;if(!S.t0)return;
   const v=runV(S.spd),d=Math.min(runDist((t-S.t0)/1000,v,6.5),BASE_L-2.4),a=BASES[S.k+1],n=BASES[S.k+2],dir=n.clone().sub(a).normalize();
   r.pos.copy(a).addScaledVector(dir,(S.k===1?1.5:2.6)+d);r.pos.y=0;r.yaw=Math.atan2(dir.x,dir.z);r._v=v;r.pose=null}
 /* the throw down after the pitch is caught: runner time against pop time plus the throw */
 function stealResolve(){const S=A.steal;if(!S||S.over)return false;S.over=true;
-  const p=A.pitch,tRun=runTime(BASE_L-2.4,runV(S.spd),6.5)+0.25,tCatchFromJump=(A.tCatch-S.t0)/1000,tThrow=tCatchFromJump+0.75+dist2([0,1],BASEXZ[S.k+2])/36+(p&&PT[p.type].v<0.9?0.08:0);
+  // runner goes on first movement; the throw is the catch plus a ~2 s pop time (a hair longer to third is offset by the shorter throw)
+  const p=A.pitch,tRun=runTime(BASE_L-3.4,runV(S.spd),6.5)+0.15,tCatchFromJump=(A.tCatch-S.t0)/1000,tThrow=tCatchFromJump+(S.k===1?1.6:1.75)+(p&&PT[p.type].v<0.9?0.12:0);
   const safe=tRun+gauss()*0.12<tThrow,sit=A.cfg.sit;
   W3.ball.visible=true;A.stealAnim={t0:now(),to:BASES[S.k+2].clone().setY(1.2),safe};
   if(safe){sit.bases[S.k+1]=S.spd;sit.bases[S.k]=null;showCall('Stolen base!',false,'w');sndCrowd(0.6)}
