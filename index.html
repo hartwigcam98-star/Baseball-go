@@ -1353,8 +1353,8 @@ function startPA(cfg){
   A.pci={x:0,y:0.76};W3.pci.visible=true;W3.zone.visible=true;
   renderHUD();renderAim();say(cfg.intro||AIMS[aimMode].hint+'.');
 }
-function nextPitchSoon(ms){A.state='ready';A.t0=now()+(ms||rnd(800,1300));A.pitch=null;A.swing=null;A.contact=null;A.judged=false;A.whiff=false;A.foulPlay=false;A.B=null;A.R=null;A.script=null;
-  const b=G.batter;b.swing=null;b.post=null;b.pose='stance';b.pos.set(BATTER_X,0,0.05);b.yaw=Math.PI/2;if(b.bat)b.bat.visible=true;
+function nextPitchSoon(ms){A.state='ready';A.t0=now()+(ms||rnd(800,1300));A.pitch=null;A.swing=null;A.contact=null;A.judged=false;A.whiff=false;A.popped=false;A.foulPlay=false;A.B=null;A.R=null;A.script=null;
+  const b=G.batter;if(!(b.swing&&b.swing.type==='sw')){b.swing=null;b.post=null}b.pose='stance';b.pos.set(BATTER_X,0,0.05);b.yaw=Math.PI/2;if(b.bat)b.bat.visible=true;
   const p=G.pitcher;p.swing=null;p.post=null;p.pose='pt';p.poseU=0;p.pos.set(0,0.25,-RUBBER+0.25);p.yaw=0;
   const c=G.catcher;c.pos.set(0,0,1.05);c.pose='cr';c.swing=null;
   W3.ball.visible=true;FX.tp=[];}
@@ -1559,10 +1559,10 @@ function stepAB(dt){
         say('Foul: just got a piece of it ('+missWhy(Object.assign({},c,{qt:c.qt>1?c.qt:0}))+')');sndBat(0.25,0.1);const B=simBall(55+Math.random()*25,rnd(-10,70),(Math.random()<0.5?-1:1)*rnd(50,80)*Math.PI/180,PARK,{x0:0,y0:c.by,z0:-0.3});A.B=B;A.R={code:'FOUL'};A.state='play';A.tP=now();planPlay(B,A.R);return}
       // swing and a miss
       A.whiff=true;say('Swing and a miss · '+missWhy(c));}
-    const pos=pitchPos(p,Math.min(tt,(A.tCatch-A.tR)/1000));W3.ball.position.copy(pos);
+    const pos=pitchPos(p,Math.min(tt,(A.tCatch-A.tR)/1000));W3.ball.position.copy(pos);if(t>=A.tCatch&&!A.popped){A.popped=true;sndGlove(p.mph/95)}
     // catcher's glove meets the ball
     catcherTrack(p);
-    if(t>=A.tCatch){sndGlove(p.mph/95);W3.ball.position.copy(pitchPos(p,(A.tCatch-A.tR)/1000));
+    if(t>=A.tCatch&&!(A.swing&&!A.judged)){W3.ball.position.copy(pitchPos(p,(A.tCatch-A.tR)/1000));
       if(A.swing){const bp=pitchPos(p,pitchTimeAtZ(p,0));showMark(bp,0xF28A78);A.ptSeen.push({x:bp.x,y:bp.y,type:p.type,res:'W'});A.count[1]++;
         if(A.count[1]>=3){umpire('Strike three!');endPA({code:'K'});return}umpire('Strike!');renderHUD();nextPitchSoon()}
       else{callPitch();if(A.state==='pitch')nextPitchSoon()}
